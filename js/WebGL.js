@@ -6,6 +6,13 @@ export default class WebGL {
     style.textContent = `
         * { margin: 0; padding: 0; }
         html, body { width: 100%; height: 100%; }
+        body {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          background: #000; /* 可选：让背景也黑色 */
+          overflow: hidden;
+        }
       `;
     document.head.appendChild(style);
 
