@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <script src="./js/Render.js"></script>
+    <script src="./js/WebGL.js"></script>
+    <script src="./js/Math.js"></script>
+    <script type="module">
+      import Render from "./js/Render.js";
+      import WebGL from "./js/WebGL.js";
+      import { RotateMatrix2D } from "./js/Math.js";
+
+      const webgl = new WebGL("webgl-canvas");
+      const render = new Render();
+
+      // 初始化渲染器
+      render.init(webgl.gl);
+
+      // 创建着色器程序
+      const vertex = `#version 300 es
+
+      uniform vec2 u_Scale;
+      layout(location = 0) in vec4 a_Position;
+      void main () {
+        vec2 scaleVector = vec2(a_Position.x * u_Scale.x, a_Position.y * u_Scale.y);      
+        gl_Position = vec4(scaleVector.xy, a_Position.z, 1.0);
+      }`;
+
+      const fragment = `#version 300 es
+      precision mediump float;
+
+      out vec4 fragColor;
+      void main () {
+        fragColor = vec4(0.0, 1.0, 0.0, 1.0);
+      }
+      `;
+      const program = webgl.useProgram(vertex, fragment);
+
+      // 创建并绑定缓冲区
+      const positionBuffer = webgl.Bind(webgl.gl.ARRAY_BUFFER);
+
+      // 准备数据到缓冲区 并指定内存布局
+      const positionData = new Float32Array([
+        -0.5, -0.5, 0.0, 0.5, 0.0, 0.0, 0.0, 0.5, 0.0,
+      ]);
+      webgl.gl.bufferData(
+        webgl.gl.ARRAY_BUFFER,
+        positionData,
+        webgl.gl.STATIC_DRAW
+      );
+      webgl.gl.vertexAttribPointer(0, 3, webgl.gl.FLOAT, false, 0, 0);
+
+      // 缩放图形
+      webgl.setUniform2f(program, "u_Scale", 0.5, 0.5);
+
+      // 清屏颜色
+      webgl.gl.clearColor(0, 0, 0, 0);
+      webgl.gl.clear(webgl.gl.COLOR_BUFFER_BIT);
+
+      // 启用 从缓冲区中读取数据
+      webgl.gl.enableVertexAttribArray(0);
+
+      // 绘制三角形
+      webgl.gl.drawArrays(webgl.gl.TRIANGLES, 0, 3);
+    </script>
+  </body>
+</html>

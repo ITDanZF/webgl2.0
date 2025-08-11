@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <script src="./js/Math.js"></script>
+    <script src="./js/Render.js"></script>
+    <script src="./js/WebGL.js"></script>
+    <script type="module">
+      import WebGL from "./js/WebGL.js";
+
+      const webgl = new WebGL("webgl-canvas");
+
+      // 创建着色器程序
+      const vertex = `#version 300 es
+
+      layout(location = 0) in vec4 a_Position;
+      void main () {
+        gl_Position = a_Position;
+      }`;
+
+      const fragment = `#version 300 es
+      precision mediump float;
+
+      out vec4 fragColor;
+      void main () {
+        fragColor = vec4(0.0, 1.0, 0.0, 1.0);
+      }
+      `;
+      const program = webgl.useProgram(vertex, fragment);
+
+      // 创建并绑定顶点缓冲区
+      const positionBuffer = webgl.Bind(webgl.gl.ARRAY_BUFFER);
+
+      // 创建数据并把数据输入顶点缓冲区中
+      const positionData = new Float32Array([
+        -0.5,
+        -0.5,
+        0.0, // 0
+        0.5,
+        -0.5,
+        0.0, // 1
+        0.5,
+        0.5,
+        0.0, // 2
+        -0.5,
+        0.5,
+        0.0, //3
+      ]);
+      webgl.gl.bufferData(
+        webgl.gl.ARRAY_BUFFER,
+        positionData,
+        webgl.gl.STATIC_DRAW
+      );
+
+      // 创建索引缓冲区
+      const indexBuffer = webgl.Bind(webgl.gl.ELEMENT_ARRAY_BUFFER);
+      const indexData = new Uint16Array([0, 1, 2, 0, 2, 3]);
+      webgl.gl.bufferData(
+        webgl.gl.ELEMENT_ARRAY_BUFFER,
+        indexData,
+        webgl.gl.STATIC_DRAW
+      );
+
+      webgl.gl.vertexAttribPointer(0, 3, webgl.gl.FLOAT, false, 0, 0);
+      webgl.gl.enableVertexAttribArray(0);
+
+      // 清屏颜色
+      webgl.gl.clearColor(0, 0, 0, 0);
+      webgl.gl.clear(webgl.gl.COLOR_BUFFER_BIT);
+      webgl.gl.drawElements(
+        webgl.gl.TRIANGLES,
+        indexData.length,
+        webgl.gl.UNSIGNED_SHORT,
+        0
+      );
+    </script>
+  </body>
+</html>

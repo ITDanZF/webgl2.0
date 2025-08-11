@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+
+  <body>
+    <script src="./js/Render.js" type="module"></script>
+    <script src="./js/WebGL.js" type="module"></script>
+
+    <script id="vertex-shader" type="x-shader/x-shader">
+      #version 300 es
+
+            in vec4 a_Position;
+            void main () {
+              gl_Position = a_Position;
+            }
+    </script>
+    <script id="fragment-shader" type="x-shader/x-shader">
+      #version 300 es
+
+            precision mediump float;
+            out vec4 fragColor;
+            void main () {
+              fragColor = vec4(1.0, 0.0, 0.0, 1.0);
+            }
+    </script>
+    <script type="module">
+      import Render from "./js/Render.js";
+      import WebGL from "./js/WebGL.js";
+
+      const webgl = new WebGL("webgl-canvas");
+      const render = new Render();
+
+      // 初始化渲染器
+      render.init(webgl.gl);
+
+      // 定义着色器
+      const vertex = `#version 300 es
+
+      layout(location = 0) in vec4 a_Position;
+      void main () {
+        gl_Position = a_Position;
+      }`;
+      const fragment = `#version 300 es
+      precision mediump float;
+      out vec4 fragColor;
+      void main () {
+        fragColor = vec4(1.0, 0.0, 0.0, 1.0);
+      }
+      `;
+
+      // 创建着色器
+      const vertexShader = render.createShader(webgl.gl.VERTEX_SHADER, vertex);
+      const fragmentShader = render.createShader(
+        webgl.gl.FRAGMENT_SHADER,
+        fragment
+      );
+
+      // 创建程序
+      const program = render.createProgram(vertexShader, fragmentShader);
+
+      // 准备顶点数据
+      const positions = new Float32Array([
+        -0.5, -0.5, 0, 0.5, -0.5, 0, 0, 0.5, 0,
+      ]);
+
+      // 创建并绑定缓冲区
+      const positionBuffer = webgl.gl.createBuffer();
+      webgl.gl.bindBuffer(webgl.gl.ARRAY_BUFFER, positionBuffer);
+      webgl.gl.bufferData(
+        webgl.gl.ARRAY_BUFFER,
+        positions,
+        webgl.gl.STATIC_DRAW
+      );
+
+      // 描述取数顶点的内存布局
+      webgl.gl.vertexAttribPointer(0, 3, webgl.gl.FLOAT, false, 0, 0);
+
+      // 清屏颜色
+      webgl.gl.clearColor(0, 0, 0, 0);
+      webgl.gl.clear(webgl.gl.COLOR_BUFFER_BIT);
+
+      // 把编译连接好的着色器程序载入当前webgl上下文，为接下来的渲染管线绘制提供着色器程序
+      webgl.gl.useProgram(program);
+
+      // 启用 从缓冲区中读取数据
+      webgl.gl.enableVertexAttribArray(0);
+
+      // 绘制三角形
+      webgl.gl.drawArrays(webgl.gl.TRIANGLES, 0, 3);
+    </script>
+  </body>
+</html>
