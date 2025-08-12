@@ -123,9 +123,24 @@ export default class WebGL {
       return;
     }
 
-    const Buffer = this.gl.createBuffer(); // 创建缓冲区对象
-    this.gl.bindBuffer(type, Buffer); // 绑定缓冲区对象
-    return Buffer;
+    const BufferId = this.gl.createBuffer(); // 创建缓冲区对象
+    this.gl.bindBuffer(type, BufferId); // 绑定缓冲区对象
+    return BufferId;
+  }
+
+  /**
+   * 解绑缓冲区对象，清除显存中的缓存数据
+   * @param {*} type 
+   * @param {*} BufferId 
+   * @returns 
+   */
+  UnBind (type, BufferId) {
+    if (!this.gl) {
+      console.error("gl上下文为空");
+      return;
+    }
+    this.gl.bindBuffer(type, null);
+    this.gl.deleteBuffer(BufferId);
   }
 
   /**

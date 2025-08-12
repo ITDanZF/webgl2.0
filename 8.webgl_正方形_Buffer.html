@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <script src="./js/WebGL.js"></script>
+  <script src="./js/Buffer.js"></script>
+  <body>
+    <script type="module">
+      import WebGL from "./js/WebGL.js";
+      import Buffer from "./js/Buffer.js";
+
+      const webgl = new WebGL("canvas");
+
+      // 顶点数据
+      const vertexBuffer = new Buffer(webgl.gl, [
+        [-0.5, -0.5, 0.0, 0.0, 0.0],
+        [0.5, -0.5, 0.0, 1.0, 0.0],
+        [0.5, 0.5, 0.0, 1.0, 1.0],
+        [-0.5, 0.5, 0.0, 0.0, 1.0],
+      ]);
+
+      // 设置顶点内存布局
+      vertexBuffer.setPointConfig([
+        {
+          location: 0,
+          size: 3,
+          type: webgl.gl.FLOAT,
+          normalized: false,
+          stride: 5 * 4,
+          offset: 0,
+        },
+        {
+          location: 1,
+          size: 2,
+          type: webgl.gl.FLOAT,
+          normalized: false,
+          stride: 5 * 4,
+          offset: 3 * 4,
+        },
+      ]);
+
+      // 绑定顶点缓冲区
+      vertexBuffer.BindBuffer(webgl.gl.ARRAY_BUFFER);
+
+      // 顶点索引数据
+      const IndexBuffer = new Buffer(
+        webgl.gl,
+        [
+          [0, 1, 2],
+          [0, 2, 3],
+        ],
+        Uint16Array
+      );
+
+      IndexBuffer.BindBuffer(webgl.gl.ELEMENT_ARRAY_BUFFER);
+
+      const programCube = webgl.useProgram(
+        `#version 300 es
+
+        layout(location = 0) in vec4 a_Position;
+        void main() {
+          gl_Position = a_Position;
+        }
+      `,
+        `#version 300 es
+        precision mediump float;
+        out vec4 fragColor;
+        void main() {
+          fragColor = vec4(1.0, 0.0, 0.0, 1.0);
+        }
+        `
+      );
+
+      webgl.gl.drawElements(webgl.gl.TRIANGLES, 6, webgl.gl.UNSIGNED_SHORT, 0);
+    </script>
+  </body>
+</html>

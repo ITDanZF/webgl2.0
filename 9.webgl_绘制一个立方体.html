@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <script src="./js/WebGL.js"></script>
+  <body>
+    <script type="module">
+      import WebGL from "./js/WebGL.js";
+      const webgl = new WebGL("canvas");
+
+      // 创建立方体的着色器程序
+      const programCube = webgl.useProgram(
+        `#version 300 es
+
+        layout(location = 0) in vec4 a_Position;
+        void main() {
+          gl_Position = a_Position;
+        }
+      `,
+        `#version 300 es
+        precision mediump float;
+        out vec4 fragColor;
+        void main() {
+          fragColor = vec4(1.0, 0.0, 0.0, 1.0);
+        }
+        `
+      );
+      // 创建立方体缓冲区
+      /**
+       * 6 7
+       * 4 5
+       *
+       * 3 2
+       * 0 1
+       *
+       * */
+      const vertexPosition = new Float32Array(
+        [
+          [-0.5, -0.5, 0.0], // 0
+          [0.5, -0.5, 0.0], // 1
+          [0.5, 0.5, 0.0], // 2
+          [-0.5, 0.5, 0.0], // 3
+
+          [-0.5, -0.5, 0.5], // 4
+          [0.5, -0.5, 0.5], // 5
+          [0.5, 0.5, 0.5], // 6
+          [-0.5, 0.5, 0.5], // 7
+        ].flat()
+      );
+
+      // 创建立方体缓冲区
+      const cubeBufferId = webgl.gl.createBuffer();
+      webgl.gl.bindBuffer(webgl.gl.ARRAY_BUFFER, cubeBufferId);
+      webgl.gl.bufferData(
+        webgl.gl.ARRAY_BUFFER,
+        vertexPosition,
+        webgl.gl.STATIC_DRAW
+      );
+
+      // 创建索引缓冲区
+      const IndexData = new Float32Array([[0, 1, 4, 1, 4, 5], []].flat());
+    </script>
+  </body>
+</html>

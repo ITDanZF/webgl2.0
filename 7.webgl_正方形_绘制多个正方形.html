@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+
+  <body>
+    <script src="./js/WebGL.js"></script>
+    <script type="module">
+      import WebGL from "./js/WebGL.js";
+      const webgl = new WebGL("canvas");
+      /**
+       * WebGL是一个状态机，当前活跃的缓冲区、着色器程序等状态会影响后续的绘制操作
+       * 1. 每次绘制前都需要切换着色器程序
+       * 2. 需要重新绑定和设置缓冲区数据
+       * */
+
+      // 绘制第一个长方形
+      const programCubeA = webgl.useProgram(
+        `#version 300 es
+
+        layout(location = 0) in vec4 a_Position;
+        void main() {
+          gl_Position = a_Position;
+        }
+      `,
+        `#version 300 es
+        precision mediump float;
+        out vec4 fragColor;
+        void main() {
+          fragColor = vec4(1.0, 0.0, 0.0, 1.0);
+        }
+        `
+      );
+
+      const positionCubeA = new Float32Array([
+        -0.8, -0.8, 0.0, -0.4, -0.8, 0.0, -0.4, 0.8, 0.0, -0.8, 0.8, 0.0,
+      ]);
+
+      const IndexA = new Uint16Array([0, 1, 2, 0, 2, 3]);
+
+      const cubeABufferId = webgl.Bind(webgl.gl.ARRAY_BUFFER);
+      webgl.gl.bufferData(
+        webgl.gl.ARRAY_BUFFER,
+        positionCubeA,
+        webgl.gl.STATIC_DRAW
+      );
+      webgl.gl.vertexAttribPointer(0, 3, webgl.gl.FLOAT, false, 0, 0);
+
+      const IndexABufferId = webgl.Bind(webgl.gl.ELEMENT_ARRAY_BUFFER);
+      webgl.gl.bufferData(
+        webgl.gl.ELEMENT_ARRAY_BUFFER,
+        IndexA,
+        webgl.gl.STATIC_DRAW
+      );
+      webgl.gl.enableVertexAttribArray(0);
+      webgl.gl.drawElements(webgl.gl.TRIANGLES, 6, webgl.gl.UNSIGNED_SHORT, 0);
+
+      // 绘制第二个长方形
+      const programCubeB = webgl.useProgram(
+        `#version 300 es
+
+        layout(location = 0) in vec4 a_Position;
+        void main() {
+          gl_Position = a_Position;
+        }
+        `,
+        `#version 300 es
+        precision mediump float;
+        out vec4 fragColor;
+        void main() {
+          fragColor = vec4(0.0, 1.0, 0.0, 1.0);
+        }
+        `
+      );
+
+      const positionCubeB = new Float32Array([
+        0.4, -0.8, 0.0, 0.8, -0.8, 0.0, 0.8, 0.8, 0.0, 0.4, 0.8, 0.0,
+      ]);
+      const cubeBBufferId = webgl.Bind(webgl.gl.ARRAY_BUFFER);
+      webgl.gl.bufferData(
+        webgl.gl.ARRAY_BUFFER,
+        positionCubeB,
+        webgl.gl.STATIC_DRAW
+      );
+      webgl.gl.vertexAttribPointer(0, 3, webgl.gl.FLOAT, false, 0, 0);
+
+      const IndexB = new Uint16Array([0, 1, 2, 0, 2, 3]);
+      const IndexBBufferId = webgl.Bind(webgl.gl.ELEMENT_ARRAY_BUFFER);
+      webgl.gl.bufferData(
+        webgl.gl.ELEMENT_ARRAY_BUFFER,
+        IndexB,
+        webgl.gl.STATIC_DRAW
+      );
+
+      webgl.gl.enableVertexAttribArray(0);
+      webgl.gl.drawElements(webgl.gl.TRIANGLES, 6, webgl.gl.UNSIGNED_SHORT, 0);
+    </script>
+  </body>
+</html>
