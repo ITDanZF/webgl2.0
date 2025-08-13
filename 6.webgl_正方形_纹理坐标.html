@@ -43,10 +43,26 @@
 
       // 创建数据并把数据输入顶点缓冲区中 (包含UV坐标)
       const positionData = new Float32Array([
-        -0.5, -0.5, 0.0, 0.0,0.0, // 0
-        0.5, -0.5, 0.0, 1.0, 0.0, // 1
-        0.5,  0.5, 0.0,1.0,1.0,  // 2
-        -0.5, 0.5, 0.0, 0.0, 1.0 //3
+        -0.5,
+        -0.5,
+        0.0,
+        0.0,
+        0.0, // 0
+        0.5,
+        -0.5,
+        0.0,
+        1.0,
+        0.0, // 1
+        0.5,
+        0.5,
+        0.0,
+        1.0,
+        1.0, // 2
+        -0.5,
+        0.5,
+        0.0,
+        0.0,
+        1.0, //3
       ]);
       webgl.gl.bufferData(
         webgl.gl.ARRAY_BUFFER,
@@ -66,11 +82,25 @@
       // webgl.gl.vertexAttribPointer(0, 3, webgl.gl.FLOAT, false, 0, 0);
 
       // 重新定义顶点中 坐标属性的内存布局：3个分量，数据类型是float, 两个顶点的坐标属性之间相隔5 * 4 字节，坐标属性在顶点内的第0个起始字节开始
-      webgl.gl.vertexAttribPointer(0, 3, webgl.gl.FLOAT, false, 5 * Float32Array.BYTES_PER_ELEMENT, 0);
+      webgl.gl.vertexAttribPointer(
+        0,
+        3,
+        webgl.gl.FLOAT,
+        false,
+        5 * Float32Array.BYTES_PER_ELEMENT,
+        0
+      );
       webgl.gl.enableVertexAttribArray(0); // 表示激活 顶点属性中 第0个属性
 
       // 重新定义顶点中 UV属性的内存布局：2个分量，数据类型是float, 两个顶点的UV属性之间相隔5 * 4 字节，UV属性在顶点内的第3个起始字节开始
-      webgl.gl.vertexAttribPointer(1, 2, webgl.gl.FLOAT, false, 5 * Float32Array.BYTES_PER_ELEMENT, 3 * Float32Array.BYTES_PER_ELEMENT);
+      webgl.gl.vertexAttribPointer(
+        1,
+        2,
+        webgl.gl.FLOAT,
+        false,
+        5 * Float32Array.BYTES_PER_ELEMENT,
+        3 * Float32Array.BYTES_PER_ELEMENT
+      );
       webgl.gl.enableVertexAttribArray(1); // 表示激活 顶点属性中 第1个属性
 
       // 清屏颜色
@@ -79,7 +109,7 @@
       // 启用混合功能
       webgl.gl.enable(webgl.gl.BLEND);
       // 设置混合函数
-      webgl.gl.blendFunc(webgl.gl.SRC_ALPHA, webgl.gl.ONE_MINUS_SRC_ALPHA)
+      webgl.gl.blendFunc(webgl.gl.SRC_ALPHA, webgl.gl.ONE_MINUS_SRC_ALPHA);
       webgl.gl.drawElements(
         webgl.gl.TRIANGLES,
         indexData.length,
