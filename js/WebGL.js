@@ -228,4 +228,24 @@ export default class WebGL {
     }
     this.gl.uniformMatrix3fv(location, false, matrix);
   }
+
+  /**
+   * 设置uniform 四维矩阵（mat4）
+   * @param {*} program
+   * @param {string} name
+   * @param {Float32Array|number[]} matrix // 16 个元素的列主序矩阵
+   */
+  setUniformMatrix4(program, name, matrix) {
+    if (!this.gl) {
+      console.error("gl上下文为空");
+      return;
+    }
+    const location = this.gl.getUniformLocation(program, name);
+    if (location === null) {
+      console.error("找不到uniform变量:", name);
+      return;
+    }
+    // WebGL 按列主序，transpose 必须为 false
+    this.gl.uniformMatrix4fv(location, false, matrix);
+  }
 }
