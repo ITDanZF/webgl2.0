@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Document</title>
+    </head>
+    <body>
+        <script src="./js/WebGL.js"></script>
+        <script type="module">
+            import WebGL from './js/WebGL.js';
+
+            const webgl = new WebGL('canvas');
+
+            // 设置背景颜色
+            webgl.setCanvasBackGroundColor('white');
+            webgl.setBodyBackgroundColor('white');
+
+            // 绘制一个正方形区域
+            const program = webgl.useProgram(
+                `#version 300 es
+                layout(location = 0) in vec4 a_Position;
+                layout(location = 1) in vec2 a_TexCoord;
+                out vec2 v_TexCoord;
+                void main () {
+                    gl_Position = a_Position;
+                    v_TexCoord = a_TexCoord;
+                }
+            `,
+                `#version 300 es
+                precision mediump float;
+                in vec2 v_TexCoord;
+                out vec4 fragColor;
+                uniform sampler2D u_Sampler;
+                void main () {
+                    fragColor = texture(u_Sampler, v_TexCoord);
+                }
+            `
+            );
+
+            const vertexPosition = new Float32Array(
+                [
+                    [-0.5, -0.5, 0.0],
+                    [0.5, -0.5, 0.0],
+                    [0.5, 0.5, 0.0],
+                    [-0.5, 0.5, 0.0],
+                ].flat()
+            );
+
+            const cubeBufferId = webgl.gl.createBuffer();
+            webgl.gl.bindBuffer(webgl.gl.ARRAY_BUFFER, cubeBufferId);
+            webgl.gl.bufferData(
+                webgl.gl.ARRAY_BUFFER,
+                vertexPosition,
+                webgl.gl.STATIC_DRAW
+            );
+            webgl.gl.vertexAttribPointer(0, 3, webgl.gl.FLOAT, false, 0, 0);
+            webgl.gl.enableVertexAttribArray(0);
+
+            // 加载图像
+            const image = new Image();
+            image.src = './images/cuteGirl.png';
+            image.onload = function () {
+                console.log('加载成功！', image);
+
+                // 1.创建纹理对象
+                const texture = webgl.gl.createTexture();
+
+                // 2.绑定纹理对象
+                webgl.gl.bindTexture(webgl.gl.TEXTURE_2D, texture);
+
+                // 3.设置纹理参数
+
+                /**
+                 * TEXTURE_WRAP_S 和 TEXTURE_WRAP_T：
+                 * S 对应纹理的 水平方向 (x轴)
+                 * T 对应纹理的 垂直方向 (y轴)
+                 *  可选值：
+                 *  gl.CLAMP_TO_EDGE：边缘拉伸
+                 *  gl.REPEAT：重复
+                 *  gl.MIRRORED_REPEAT：镜像重复
+                 *
+                 *
+                 * TEXTURE_MIN_FILTER（缩小过滤）：
+                 * 当纹理被 缩小 显示时使用
+                 * 比如：把1024x1024的纹理贴到100x100的矩形上
+                 * 可选值：
+                 *  gl.NEAREST：最近邻过滤
+                 *  gl.LINEAR：线性过滤
+                 *
+                 * TEXTURE_MAG_FILTER（放大过滤）：
+                 * 当纹理被 放大 显示时使用
+                 * 比如：把100x100的纹理贴到1024x1024的矩形上
+                 * */
+                webgl.gl.texParameteri(
+                    webgl.gl.TEXTURE_2D,
+                    webgl.gl.TEXTURE_WRAP_S,
+                    webgl.gl.CLAMP_TO_EDGE
+                );
+                webgl.gl.texParameteri(
+                    webgl.gl.TEXTURE_2D,
+                    webgl.gl.TEXTURE_WRAP_T,
+                    webgl.gl.CLAMP_TO_EDGE
+                );
+                webgl.gl.texParameteri(
+                    webgl.gl.TEXTURE_2D,
+                    webgl.gl.TEXTURE_MIN_FILTER,
+                    webgl.gl.LINEAR
+                );
+                webgl.gl.texParameteri(
+                    webgl.gl.TEXTURE_2D,
+                    webgl.gl.TEXTURE_MAG_FILTER,
+                    webgl.gl.LINEAR
+                );
+
+                // 4.将图像数据上传到纹理对象
+                webgl.gl.texImage2D(
+                    webgl.gl.TEXTURE_2D,
+                    0,
+                    webgl.gl.RGBA,
+                    webgl.gl.RGBA,
+                    webgl.gl.UNSIGNED_BYTE,
+                    image
+                );
+
+                // 5.激活纹理单元
+                webgl.gl.activeTexture(webgl.gl.TEXTURE0);
+
+                // 6.将纹理对象绑定到纹理单元
+                webgl.gl.bindTexture(webgl.gl.TEXTURE_2D, texture);
+
+                // 7.将纹理单元传递给着色器
+                const samplerLocation = webgl.gl.getUniformLocation(
+                    program,
+                    'u_Texture'
+                );
+                webgl.gl.uniform1i(samplerLocation, 0);
+
+                // 8.将纹理坐标传递给着色器
+                // (webgl 是状态机，第一次顶点数据和对应的缓冲区绑定，第二次纹理坐标和对应的缓冲区绑定，通过vertexAttribPointer为每个attribute location独立绑定了对应的缓冲区，且互不影响)
+                /**
+                 * 左下角：(0.0, 1.0) - 对应图像左上角
+                 * 右下角：(1.0, 1.0) - 对应图像右上角
+                 * 右上角：(1.0, 0.0) - 对应图像右下角
+                 * 左上角：(0.0, 0.0) - 对应图像左下角
+                 * */
+                const texCoor = webgl.gl.createBuffer();
+                webgl.gl.bindBuffer(webgl.gl.ARRAY_BUFFER, texCoor);
+                webgl.gl.bufferData(
+                    webgl.gl.ARRAY_BUFFER,
+                    new Float32Array([0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]),
+                    webgl.gl.STATIC_DRAW
+                );
+                webgl.gl.vertexAttribPointer(1, 2, webgl.gl.FLOAT, false, 0, 0);
+                webgl.gl.enableVertexAttribArray(1);
+
+                webgl.gl.drawArrays(webgl.gl.TRIANGLE_FAN, 0, 4);
+            };
+        </script>
+    </body>
+</html>
