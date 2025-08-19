@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Document</title>
+    </head>
+    <body>
+        <script src="./js/WebGL.js"></script>
+        <script src="./js/Camera.js"></script>
+        <script src="./js/Math.js"></script>
+        <script src="./js/Object3D.js"></script>
+        <script type="module">
+            import WebGL from './js/WebGL.js';
+            import Camera from './js/Camera.js';
+            import { mulMat4 } from './js/Math.js';
+            import Object3D from './js/Object3D.js';
+
+            const webgl = new WebGL('canvas');
+            const camera = new Camera(webgl.canvas.width, webgl.canvas.height);
+            const Object = new Object3D();
+
+            // 创建立方体的着色器程序
+            const programCube = webgl.useProgram(
+                `#version 300 es
+                uniform mat4 u_MVP;
+                layout(location = 0) in vec4 a_Position;
+                layout(location = 1) in vec4 a_Color;
+                layout(location = 2) in vec2 a_TexCoord;
+
+                out vec4 v_Color;
+                out vec2 v_TexCoord;
+
+                void main() {
+                gl_Position = u_MVP * a_Position;
+                v_Color = a_Color;
+                v_TexCoord = a_TexCoord;
+                }
+            `,
+                `#version 300 es
+                precision mediump float;
+
+                in vec4 v_Color;
+                in vec2 v_TexCoord;
+                out vec4 fragColor;
+                void main() {
+                    vec3 texColor = vec3(v_TexCoord.x, v_TexCoord.y, (v_TexCoord.x + v_TexCoord.y) * 0.5);
+                    fragColor = vec4(mix(v_Color.rgb, texColor, 0.5), 1.0);
+                }
+                `
+            );
+
+            // 创建立方体的顶点位置
+            const vertexPosition = new Float32Array(
+                [
+                    [-0.5, -0.5, -0.5, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0], // 0
+                    [0.5, -0.5, -0.5, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0], // 1
+                    [0.5, 0.5, -0.5, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0], // 2
+                    [-0.5, 0.5, -0.5, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0], // 3
+
+                    [-0.5, -0.5, 0.5, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0], // 4
+                    [0.5, -0.5, 0.5, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0], // 5
+                    [0.5, 0.5, 0.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0], // 6
+                    [-0.5, 0.5, 0.5, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0], // 7
+                ].flat()
+            );
+
+            // 创建立方体缓冲区
+            const cubeBufferId = webgl.gl.createBuffer();
+            webgl.gl.bindBuffer(webgl.gl.ARRAY_BUFFER, cubeBufferId);
+            webgl.gl.bufferData(
+                webgl.gl.ARRAY_BUFFER,
+                vertexPosition,
+                webgl.gl.STATIC_DRAW
+            );
+
+            webgl.gl.vertexAttribPointer(
+                0,
+                3,
+                webgl.gl.FLOAT,
+                false,
+                9 * Float32Array.BYTES_PER_ELEMENT,
+                0
+            );
+            webgl.gl.enableVertexAttribArray(0);
+
+            webgl.gl.vertexAttribPointer(
+                1,
+                3,
+                webgl.gl.FLOAT,
+                false,
+                9 * Float32Array.BYTES_PER_ELEMENT,
+                3 * Float32Array.BYTES_PER_ELEMENT
+            );
+
+            webgl.gl.enableVertexAttribArray(1);
+
+            webgl.gl.vertexAttribPointer(
+                2,
+                2,
+                webgl.gl.FLOAT,
+                false,
+                9 * Float32Array.BYTES_PER_ELEMENT,
+                7 * Float32Array.BYTES_PER_ELEMENT
+            );
+            webgl.gl.enableVertexAttribArray(2);
+
+            // 创建索引缓冲区
+            const IndexData = new Uint16Array(
+                [
+                    [0, 1, 2, 0, 2, 3],
+                    [5, 4, 7, 5, 7, 6],
+                    [4, 0, 3, 4, 3, 7],
+                    [1, 5, 6, 1, 6, 2],
+                    [4, 5, 1, 4, 1, 0],
+                    [3, 2, 6, 3, 6, 7],
+                ].flat()
+            );
+
+            // 创建索引缓冲区
+            const IndexBufferId = webgl.gl.createBuffer();
+            webgl.gl.bindBuffer(webgl.gl.ELEMENT_ARRAY_BUFFER, IndexBufferId);
+            webgl.gl.bufferData(
+                webgl.gl.ELEMENT_ARRAY_BUFFER,
+                IndexData,
+                webgl.gl.STATIC_DRAW
+            );
+
+            let index = 0.0;
+
+            setInterval(() => {
+                camera.setPosition(0, 0, 3);
+                Object.setRotation(0, index, 0);
+
+                // 计算mvp矩阵
+                const M = Object.ModelMatrix;
+                const V = camera.ViewMatrix;
+                const P = camera.ProjectionMatrix;
+
+                const vp = new Float32Array(16);
+                const mvp = new Float32Array(16);
+                mulMat4(P, V, vp);
+                mulMat4(vp, M, mvp);
+
+                console.log('Model Matrix:', M);
+                console.log('View Matrix:', V);
+                console.log('Projection Matrix:', P);
+                console.log('MVP Matrix:', vp);
+
+                webgl.setUniformMatrix4(programCube, 'u_MVP', mvp);
+
+                // 清屏颜色
+                webgl.gl.clearColor(0, 0, 0, 0);
+                webgl.gl.enable(webgl.gl.DEPTH_TEST);
+                webgl.gl.clear(
+                    webgl.gl.COLOR_BUFFER_BIT | webgl.gl.DEPTH_BUFFER_BIT
+                );
+
+                // 绘制
+                webgl.gl.drawElements(
+                    webgl.gl.TRIANGLES,
+                    IndexData.length,
+                    webgl.gl.UNSIGNED_SHORT,
+                    0
+                );
+
+                index += 1;
+            }, 1000 / 120);
+        </script>
+    </body>
+</html>

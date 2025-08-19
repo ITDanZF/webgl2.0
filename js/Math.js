@@ -1,118 +1,124 @@
 /**
  * 构建二维旋转矩阵
- * @param {*} angle 
- * @returns 
+ * @param {*} angle
+ * @returns
  */
 export const RotateMatrix2D = (angle) => {
-  const rad = (angle * Math.PI) / 180;
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
-  return [
-    cos, -sin, 0,
-    sin, cos, 0,
-    0, 0, 1
-  ];
+    const rad = (angle * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    return [cos, -sin, 0, sin, cos, 0, 0, 0, 1];
 };
 
 /**
  * 绕z轴旋转的三维矩阵
- * @param {*} angle 
- * @returns 
+ * @param {*} angle
+ * @returns
  */
 export const RotateMatrix3DZ = (angle) => {
-  const rad = (angle * Math.PI) / 180;
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
-  return [
-    cos, -sin, 0, 0,
-    sin, cos, 0, 0,
-    0, 0, 1, 0,
-    0, 0, 0, 1
-  ];
+    const rad = (angle * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    return [cos, -sin, 0, 0, sin, cos, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 };
 
 /**
  * 绕y轴旋转的三维矩阵
- * @param {*} angle 
- * @returns 
+ * @param {*} angle
+ * @returns
  */
 export const RotateMatrix3DY = (angle) => {
-  const rad = (angle * Math.PI) / 180;
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
-  return [
-    cos, 0, sin, 0,
-    0, 1, 0, 0,
-    -sin, 0, cos, 0,
-    0, 0, 0, 1
-  ];
+    const rad = (angle * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    return [cos, 0, sin, 0, 0, 1, 0, 0, -sin, 0, cos, 0, 0, 0, 0, 1];
 };
 
 /**
  * 绕x轴旋转的三维矩阵
- * @param {*} angle 
- * @returns 
+ * @param {*} angle
+ * @returns
  */
 export const RotateMatrix3DX = (angle) => {
-  const rad = (angle * Math.PI) / 180;
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
-  return [
-    1, 0, 0, 0,
-    0, cos, -sin, 0,
-    0, sin, cos, 0,
-    0, 0, 0, 1
-  ];
+    const rad = (angle * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    return [1, 0, 0, 0, 0, cos, -sin, 0, 0, sin, cos, 0, 0, 0, 0, 1];
 };
 
+/**
+ * 4x4 矩阵相乘 (列主序)  result = a * b
+ * 传入与返回都为长度 16 的数组/Float32Array，索引按照列主序：
+ * | m0  m4  m8  m12 |
+ * | m1  m5  m9  m13 |
+ * | m2  m6  m10 m14 |
+ * | m3  m7  m11 m15 |
+ * @param {number[]|Float32Array} a 左矩阵
+ * @param {number[]|Float32Array} b 右矩阵
+ * @param {Float32Array|number[]} [out] 可选输出缓冲，默认新建 Float32Array(16)
+ * @returns {Float32Array|number[]} out
+ */
+export const mulMat4 = (a, b, out = new Float32Array(16)) => {
+    // 若输出与输入相同，先复制到临时数组避免被覆盖
+    let ta = a,
+        tb = b;
+    if (out === a) ta = new Float32Array(a); // 复制 a
+    if (out === b) tb = out === a ? new Float32Array(b) : new Float32Array(b);
 
-function mat4ModelTRS(t = [0, 0, 0], r = [0, 0, 0], s = [1, 1, 1]) {
-  const [tx, ty, tz] = t;
-  const [rx, ry, rz] = r;
-  const [sx, sy, sz] = s;
+    const a0 = ta[0],
+        a1 = ta[1],
+        a2 = ta[2],
+        a3 = ta[3];
+    const a4 = ta[4],
+        a5 = ta[5],
+        a6 = ta[6],
+        a7 = ta[7];
+    const a8 = ta[8],
+        a9 = ta[9],
+        a10 = ta[10],
+        a11 = ta[11];
+    const a12 = ta[12],
+        a13 = ta[13],
+        a14 = ta[14],
+        a15 = ta[15];
 
-  const cX = Math.cos(rx), sX = Math.sin(rx);
-  const cY = Math.cos(ry), sY = Math.sin(ry);
-  const cZ = Math.cos(rz), sZ = Math.sin(rz);
+    const b0 = tb[0],
+        b1 = tb[1],
+        b2 = tb[2],
+        b3 = tb[3];
+    const b4 = tb[4],
+        b5 = tb[5],
+        b6 = tb[6],
+        b7 = tb[7];
+    const b8 = tb[8],
+        b9 = tb[9],
+        b10 = tb[10],
+        b11 = tb[11];
+    const b12 = tb[12],
+        b13 = tb[13],
+        b14 = tb[14],
+        b15 = tb[15];
 
-  // R = Rz * Ry * Rx（与你文件中 Rx/Ry/Rz 的定义一致）
-  const r11 = cZ * cY;
-  const r12 = -sZ * cX + cZ * sY * sX;
-  const r13 =  sZ * sX + cZ * sY * cX;
+    // 第一列 (col 0)
+    out[0] = a0 * b0 + a4 * b1 + a8 * b2 + a12 * b3;
+    out[1] = a1 * b0 + a5 * b1 + a9 * b2 + a13 * b3;
+    out[2] = a2 * b0 + a6 * b1 + a10 * b2 + a14 * b3;
+    out[3] = a3 * b0 + a7 * b1 + a11 * b2 + a15 * b3;
+    // 第二列 (col 1)
+    out[4] = a0 * b4 + a4 * b5 + a8 * b6 + a12 * b7;
+    out[5] = a1 * b4 + a5 * b5 + a9 * b6 + a13 * b7;
+    out[6] = a2 * b4 + a6 * b5 + a10 * b6 + a14 * b7;
+    out[7] = a3 * b4 + a7 * b5 + a11 * b6 + a15 * b7;
+    // 第三列 (col 2)
+    out[8] = a0 * b8 + a4 * b9 + a8 * b10 + a12 * b11;
+    out[9] = a1 * b8 + a5 * b9 + a9 * b10 + a13 * b11;
+    out[10] = a2 * b8 + a6 * b9 + a10 * b10 + a14 * b11;
+    out[11] = a3 * b8 + a7 * b9 + a11 * b10 + a15 * b11;
+    // 第四列 (col 3)
+    out[12] = a0 * b12 + a4 * b13 + a8 * b14 + a12 * b15;
+    out[13] = a1 * b12 + a5 * b13 + a9 * b14 + a13 * b15;
+    out[14] = a2 * b12 + a6 * b13 + a10 * b14 + a14 * b15;
+    out[15] = a3 * b12 + a7 * b13 + a11 * b14 + a15 * b15;
 
-  const r21 = sZ * cY;
-  const r22 =  cZ * cX + sZ * sY * sX;
-  const r23 = -cZ * sX + sZ * sY * cX;
-
-  const r31 = -sY;
-  const r32 =  cY * sX;
-  const r33 =  cY * cX;
-
-  // M = T * (R * S) ：右乘 S 等价于按列缩放
-  const m = new Float32Array(16);
-  // 第 1 列（含 sx）
-  m[0] = r11 * sx;
-  m[1] = r21 * sx;
-  m[2] = r31 * sx;
-  m[3] = 0;
-  // 第 2 列（含 sy）
-  m[4] = r12 * sy;
-  m[5] = r22 * sy;
-  m[6] = r32 * sy;
-  m[7] = 0;
-  // 第 3 列（含 sz）
-  m[8]  = r13 * sz;
-  m[9]  = r23 * sz;
-  m[10] = r33 * sz;
-  m[11] = 0;
-  // 第 4 列（平移）
-  m[12] = tx;
-  m[13] = ty;
-  m[14] = tz;
-  m[15] = 1;
-
-  return m;
-}
-
-
-
+    return out;
+};
