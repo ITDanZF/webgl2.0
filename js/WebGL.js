@@ -153,6 +153,11 @@ export default class WebGL {
     return program;
   }
 
+
+  BufferData () {
+
+  }
+
   /**
    * 创建并绑定某种类型的缓冲区对象
    * @param {*} type
