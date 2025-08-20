@@ -1,33 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Document</title>
-    </head>
-    <body>
-        <script src="./js/WebGL.js"></script>
-        <script type="module">
-            import WebGL from './js/WebGL.js';
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <script type="module">
+      import WebGL from "./js/WebGL.js";
 
-            const webgl = new WebGL('canvas');
+      const webgl = new WebGL("canvas");
 
-            // 设置背景颜色
-            webgl.setCanvasBackGroundColor('white');
-            webgl.setBodyBackgroundColor('white');
+      /**
+       * 正交投影矩阵：
+       * 与透视投影不同，透视投影的视锥体是四棱锥台（截头锥体），而正交投影的视锥体是长方体
+       * 我们以观察者的位置为空间坐标系的原点，建立一个空间坐标系，而正交投影的视锥体在这个空间的某个位置，并且与坐标轴平行
+       *
+       * 假设正射投影视锥体上下左右平面范围分别用  top、bottom、left、right 表示,那么正射投影视锥体的中心点为[(l+r)/2, (b+t)/2, (f+n)/2]
+       * 1.我们把正射投影视锥体中心点平移到观察者的位置(即 空间坐标系的原点)，那么其线性变换的矩阵(Mtranslate)为：
+       *      1 0 0 -[(l+r)/2]
+       *      0 1 0 -[(b+t)/2]
+       *      0 0 1 -[(f+n)/2]
+       *      0 0 0 1
+       *
+       * 2.把正射投影视锥体[l,r] [t, b], [n,f]缩放到[-1,1]的立方体(这个空间就是NDC空间)，那么其线性变换的矩阵(Mscale)为：
+       *      2/(r-l) 0 0 0
+       *      0 2/(t-b) 0 0
+       *      0 0 2/(f-n) 0
+       *      0 0 0 1
+       *
+       * 3.把这两次的线性变换进行组合 即：
+       *  Mortho = Mtranslate * Mscale
+       *  Mortho = [
+       *      2/(r-l)                   0               0        0
+       *        0                     2/(t-b)           0        0
+       *        0                       0              -1        0
+       *     -(r+l)/(r-l)           -(t+b)/(t-b)        0        1
+       *  ]
+       *
+       * 所以正交投影矩阵为：Mortho
+       *
+       * */
 
-            // 绘制一个正方形区域
-            const program = webgl.useProgram(
-                `#version 300 es
+      // 正交投影矩阵 （把“几何顶点的像素位置”线性映射到 NDC→屏幕，实现通过控制图像的分辨率，来控制图像的显示大小）
+      function MorthoMatrix(l, r, b, t, n, f) {
+        return new Float32Array(
+          [
+            [2 / (r - l), 0, 0, 0],
+            [0, 2 / (t - b), 0, 0],
+            [0, 0, -1, 0],
+            [-(r + l) / (r - l), -(t + b) / (t - b), 0, 1],
+          ].flat()
+        );
+      }
+
+      // 设置背景颜色
+      webgl.setCanvasBackGroundColor("white");
+      webgl.setBodyBackgroundColor("white");
+
+      // 绘制一个正方形区域
+      const program = webgl.useProgram(
+        `#version 300 es
                 layout(location = 0) in vec4 a_Position;
                 layout(location = 1) in vec2 a_TexCoord;
+                uniform mat4 u_Ortho;
                 out vec2 v_TexCoord;
                 void main () {
-                    gl_Position = a_Position;
+                    gl_Position = u_Ortho * a_Position;
                     v_TexCoord = a_TexCoord;
                 }
             `,
-                `#version 300 es
+        `#version 300 es
                 precision mediump float;
                 in vec2 v_TexCoord;
                 out vec4 fragColor;
@@ -36,126 +79,171 @@
                     fragColor = texture(u_Sampler, v_TexCoord);
                 }
             `
-            );
+      );
 
-            const vertexPosition = new Float32Array(
-                [
-                    [-0.5, -0.5, 0.0],
-                    [0.5, -0.5, 0.0],
-                    [0.5, 0.5, 0.0],
-                    [-0.5, 0.5, 0.0],
-                ].flat()
-            );
+      // 加载图像
+      const image = new Image();
+      image.src = "./images/cuteGirl.png";
+      image.onload = function () {
+        // 按窗口可用空间等比缩小 canvas
+        const scale = Math.min(
+          window.innerWidth / image.width,
+          window.innerHeight / image.height,
+          1
+        );
+        const canvasW = Math.round(image.width * scale);
+        const canvasH = Math.round(image.height * scale);
+        webgl.setCanvasSize(canvasW, canvasH);
+        console.log(
+          "图像原始宽高：",
+          image.width,
+          image.height,
+          "canvas缩放后：",
+          canvasW,
+          canvasH
+        );
 
-            const cubeBufferId = webgl.gl.createBuffer();
-            webgl.gl.bindBuffer(webgl.gl.ARRAY_BUFFER, cubeBufferId);
-            webgl.gl.bufferData(
-                webgl.gl.ARRAY_BUFFER,
-                vertexPosition,
-                webgl.gl.STATIC_DRAW
-            );
-            webgl.gl.vertexAttribPointer(0, 3, webgl.gl.FLOAT, false, 0, 0);
-            webgl.gl.enableVertexAttribArray(0);
+        // 设定视口与正交矩阵（y 向下为正：t=0, b=H）
+        const W = webgl.gl.drawingBufferWidth;
+        const H = webgl.gl.drawingBufferHeight;
+        /**
+         * viewport：
+         * 用来设置“视口”矩形,把NDC空间映射到帧缓冲中的哪一块像素区域，
+         * 它不改变投影/相机，只决定最终画在屏幕的哪一块区域
+         *
+         * 参数：
+         *  x, y：视口左上角在帧缓冲中的位置
+         *  width, height：视口的大小
+         *
+         * 注意：
+         * 视口大小和帧缓冲大小是两个不同的概念
+         * */
+        webgl.gl.viewport(0, 0, W, H);
+        const Mortho = MorthoMatrix(0, W, 0, H, -1, 1);
+        const uOrtho = webgl.gl.getUniformLocation(program, "u_Ortho");
+        webgl.gl.uniformMatrix4fv(uOrtho, false, Mortho);
 
-            // 加载图像
-            const image = new Image();
-            image.src = './images/cuteGirl.png';
-            image.onload = function () {
-                console.log('加载成功！', image);
+        const x0 = 0.0;
+        const y0 = 0.0;
+        const w = W;
+        const h = H;
 
-                // 1.创建纹理对象
-                const texture = webgl.gl.createTexture();
+        // 这里不再以NDC坐标空间设置正方形的顶点坐标，而是以像素坐标空间设置正方形的顶点坐标，
+        // 因为经过正交投影后图像自身的像素空间已经映射到了NDC坐标空间中
+        const vertexPosition = new Float32Array(
+          [
+            [x0, y0, 0.0],
+            [x0 + w, y0, 0.0],
+            [x0 + w, y0 + h, 0.0],
+            [x0, y0 + h, 0.0],
+          ].flat()
+        );
 
-                // 2.绑定纹理对象
-                webgl.gl.bindTexture(webgl.gl.TEXTURE_2D, texture);
+        const cubeBufferId = webgl.gl.createBuffer();
+        webgl.gl.bindBuffer(webgl.gl.ARRAY_BUFFER, cubeBufferId);
+        webgl.gl.bufferData(
+          webgl.gl.ARRAY_BUFFER,
+          vertexPosition,
+          webgl.gl.STATIC_DRAW
+        );
+        webgl.gl.vertexAttribPointer(0, 3, webgl.gl.FLOAT, false, 0, 0);
+        webgl.gl.enableVertexAttribArray(0);
 
-                // 3.设置纹理参数
+        console.log("加载成功！", image);
 
-                /**
-                 * TEXTURE_WRAP_S 和 TEXTURE_WRAP_T：
-                 * S 对应纹理的 水平方向 (x轴)
-                 * T 对应纹理的 垂直方向 (y轴)
-                 *  可选值：
-                 *  gl.CLAMP_TO_EDGE：边缘拉伸
-                 *  gl.REPEAT：重复
-                 *  gl.MIRRORED_REPEAT：镜像重复
-                 *
-                 *
-                 * TEXTURE_MIN_FILTER（缩小过滤）：
-                 * 当纹理被 缩小 显示时使用
-                 * 比如：把1024x1024的纹理贴到100x100的矩形上
-                 * 可选值：
-                 *  gl.NEAREST：最近邻过滤
-                 *  gl.LINEAR：线性过滤
-                 *
-                 * TEXTURE_MAG_FILTER（放大过滤）：
-                 * 当纹理被 放大 显示时使用
-                 * 比如：把100x100的纹理贴到1024x1024的矩形上
-                 * */
-                webgl.gl.texParameteri(
-                    webgl.gl.TEXTURE_2D,
-                    webgl.gl.TEXTURE_WRAP_S,
-                    webgl.gl.CLAMP_TO_EDGE
-                );
-                webgl.gl.texParameteri(
-                    webgl.gl.TEXTURE_2D,
-                    webgl.gl.TEXTURE_WRAP_T,
-                    webgl.gl.CLAMP_TO_EDGE
-                );
-                webgl.gl.texParameteri(
-                    webgl.gl.TEXTURE_2D,
-                    webgl.gl.TEXTURE_MIN_FILTER,
-                    webgl.gl.LINEAR
-                );
-                webgl.gl.texParameteri(
-                    webgl.gl.TEXTURE_2D,
-                    webgl.gl.TEXTURE_MAG_FILTER,
-                    webgl.gl.LINEAR
-                );
+        // 1.创建纹理对象
+        const texture = webgl.gl.createTexture();
 
-                // 4.将图像数据上传到纹理对象
-                webgl.gl.texImage2D(
-                    webgl.gl.TEXTURE_2D,
-                    0,
-                    webgl.gl.RGBA,
-                    webgl.gl.RGBA,
-                    webgl.gl.UNSIGNED_BYTE,
-                    image
-                );
+        // 2.绑定纹理对象
+        webgl.gl.bindTexture(webgl.gl.TEXTURE_2D, texture);
 
-                // 5.激活纹理单元
-                webgl.gl.activeTexture(webgl.gl.TEXTURE0);
+        // 3.设置纹理参数
 
-                // 6.将纹理对象绑定到纹理单元
-                webgl.gl.bindTexture(webgl.gl.TEXTURE_2D, texture);
+        /**
+         * TEXTURE_WRAP_S 和 TEXTURE_WRAP_T：
+         * S 对应纹理的 水平方向 (x轴)
+         * T 对应纹理的 垂直方向 (y轴)
+         *  可选值：
+         *  gl.CLAMP_TO_EDGE：边缘拉伸
+         *  gl.REPEAT：重复
+         *  gl.MIRRORED_REPEAT：镜像重复
+         *
+         *
+         * TEXTURE_MIN_FILTER（缩小过滤）：
+         * 当纹理被 缩小 显示时使用
+         * 比如：把1024x1024的纹理贴到100x100的矩形上
+         * 可选值：
+         *  gl.NEAREST：最近邻过滤
+         *  gl.LINEAR：线性过滤
+         *
+         * TEXTURE_MAG_FILTER（放大过滤）：
+         * 当纹理被 放大 显示时使用
+         * 比如：把100x100的纹理贴到1024x1024的矩形上
+         * */
+        webgl.gl.texParameteri(
+          webgl.gl.TEXTURE_2D,
+          webgl.gl.TEXTURE_WRAP_S,
+          webgl.gl.CLAMP_TO_EDGE
+        );
+        webgl.gl.texParameteri(
+          webgl.gl.TEXTURE_2D,
+          webgl.gl.TEXTURE_WRAP_T,
+          webgl.gl.CLAMP_TO_EDGE
+        );
+        webgl.gl.texParameteri(
+          webgl.gl.TEXTURE_2D,
+          webgl.gl.TEXTURE_MIN_FILTER,
+          webgl.gl.LINEAR
+        );
+        webgl.gl.texParameteri(
+          webgl.gl.TEXTURE_2D,
+          webgl.gl.TEXTURE_MAG_FILTER,
+          webgl.gl.LINEAR
+        );
 
-                // 7.将纹理单元传递给着色器
-                const samplerLocation = webgl.gl.getUniformLocation(
-                    program,
-                    'u_Texture'
-                );
-                webgl.gl.uniform1i(samplerLocation, 0);
+        // 4.将图像数据上传到纹理对象
+        webgl.gl.texImage2D(
+          webgl.gl.TEXTURE_2D,
+          0,
+          webgl.gl.RGBA,
+          webgl.gl.RGBA,
+          webgl.gl.UNSIGNED_BYTE,
+          image
+        );
 
-                // 8.将纹理坐标传递给着色器
-                // (webgl 是状态机，第一次顶点数据和对应的缓冲区绑定，第二次纹理坐标和对应的缓冲区绑定，通过vertexAttribPointer为每个attribute location独立绑定了对应的缓冲区，且互不影响)
-                /**
-                 * 左下角：(0.0, 1.0) - 对应图像左上角
-                 * 右下角：(1.0, 1.0) - 对应图像右上角
-                 * 右上角：(1.0, 0.0) - 对应图像右下角
-                 * 左上角：(0.0, 0.0) - 对应图像左下角
-                 * */
-                const texCoor = webgl.gl.createBuffer();
-                webgl.gl.bindBuffer(webgl.gl.ARRAY_BUFFER, texCoor);
-                webgl.gl.bufferData(
-                    webgl.gl.ARRAY_BUFFER,
-                    new Float32Array([0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]),
-                    webgl.gl.STATIC_DRAW
-                );
-                webgl.gl.vertexAttribPointer(1, 2, webgl.gl.FLOAT, false, 0, 0);
-                webgl.gl.enableVertexAttribArray(1);
+        // 5.激活纹理单元
+        webgl.gl.activeTexture(webgl.gl.TEXTURE0);
 
-                webgl.gl.drawArrays(webgl.gl.TRIANGLE_FAN, 0, 4);
-            };
-        </script>
-    </body>
+        // 6.将纹理对象绑定到纹理单元
+        webgl.gl.bindTexture(webgl.gl.TEXTURE_2D, texture);
+
+        // 7.将纹理单元传递给着色器
+        const samplerLocation = webgl.gl.getUniformLocation(
+          program,
+          "u_Sampler"
+        );
+        webgl.gl.uniform1i(samplerLocation, 0);
+
+        // 8.将纹理坐标传递给着色器
+        // (webgl 是状态机，第一次顶点数据和对应的缓冲区绑定，第二次纹理坐标和对应的缓冲区绑定，通过vertexAttribPointer为每个attribute location独立绑定了对应的缓冲区，且互不影响)
+        /**
+         * 左下角：(0.0, 1.0) - 对应图像左上角
+         * 右下角：(1.0, 1.0) - 对应图像右上角
+         * 右上角：(1.0, 0.0) - 对应图像右下角
+         * 左上角：(0.0, 0.0) - 对应图像左下角
+         * */
+        const texCoor = webgl.gl.createBuffer();
+        webgl.gl.bindBuffer(webgl.gl.ARRAY_BUFFER, texCoor);
+        webgl.gl.bufferData(
+          webgl.gl.ARRAY_BUFFER,
+          new Float32Array([0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]),
+          webgl.gl.STATIC_DRAW
+        );
+        webgl.gl.vertexAttribPointer(1, 2, webgl.gl.FLOAT, false, 0, 0);
+        webgl.gl.enableVertexAttribArray(1);
+
+        webgl.gl.drawArrays(webgl.gl.TRIANGLE_FAN, 0, 4);
+      };
+    </script>
+  </body>
 </html>
