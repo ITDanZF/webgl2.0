@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Document</title>
+    </head>
+    <body>
+        <script type="module">
+            import { WebGL, Object3D, Camera, Renderer } from './js/index.js';
+            const webgl = new WebGL('canvas');
+
+            /**
+             * 我们之前绘制的图形当中看起来都是平的，没有深度感，着色均匀，无法体现出三维特性 ，
+             * 如果观察一个被照亮的球体照片，那么我们看到的不是着色均匀的圆形，而是包含不同颜色渐变【明暗】的圆形，
+             * 正是种颜色的渐变才使得二维图像看起来像三维图像。
+             * 在webgl中，光照效果的模拟是通过计算光线与物体表面之间的交互来实现的，具体来说就是：光线和对象表面材质的相互作用产生不同颜色的渐变效果
+             *
+             * 在实际物理学中，光线与物体表面的交互十分复杂，以下只考虑一种简单的情景：
+             * 光线从光源出发，到达表面A后，一部分光线被表面A吸收，一部分光线被表面A反射，被A反射的光线中只有一部份到达了B表面，
+             * 同样B表面也会吸收一部分光线，反射一部分光线，反射的光线中只有一部份到达了C表面，以此类推，反射不断。光线在表面之间多次反射解释了一些细微的明暗效果。
+             * 从数学的角度看，这个递归过程的极限可以用一个积分方程描述，即 绘制方程，这个方程理论上可以计算出场景中所有表面的明暗值，但实际计算量巨大，一般使用辐射度方法或者是光线追踪来近似解法。
+             *
+             *
+             * Phong模型：
+             * 尽管我们可以使用光线追踪实时绘制中等复杂的场景，但是速度上还是有所欠缺，而Phong反射模型是物理正确性和高效计算之间的折中
+             *
+             *
+             *
+             *
+             * */
+
+            // 设置背景颜色
+            webgl.setCanvasBackGroundColor('black');
+            webgl.setBodyBackgroundColor('black');
+        </script>
+    </body>
+</html>
