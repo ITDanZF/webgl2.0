@@ -1,21 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
-  </head>
-  <body>
-    <script type="module">
-      import WebGL from "./js/WebGL.js";
-      import { MorthoMatrix } from "./js/Math.js";
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Document</title>
+    </head>
+    <body>
+        <script type="module">
+            import WebGL from './js/WebGL.js';
+            import { MorthoMatrix } from './js/Math.js';
 
-      const webgl = new WebGL("canvas");
+            const webgl = new WebGL('canvas');
 
-      webgl.setCanvasBackGroundColor("black");
-      webgl.setBodyBackgroundColor("black");
+            webgl.setCanvasBackGroundColor('black');
+            webgl.setBodyBackgroundColor('black');
 
-      /**
+            /**
        * texture 函数：
        * 用于从 GPU 内存中的纹理数据中提取颜色值，texture提取的对象本质上是多维纹理数组的颜色值
        * 在本案例中，由于是2D图像纹理，提取的自然是二维纹理数组的颜色值
@@ -46,8 +46,8 @@
        * 
        * */
 
-      const program = webgl.useProgram(
-        `#version 300 es
+            const program = webgl.useProgram(
+                `#version 300 es
                         layout(location = 0) in vec4 a_Position;
                         layout(location = 1) in vec2 a_TexCoord;
                         uniform mat4 u_Ortho;
@@ -57,7 +57,7 @@
                             v_TexCoord = a_TexCoord;
                         }
                     `,
-        `#version 300 es
+                `#version 300 es
                         precision mediump float;
                         in vec2 v_TexCoord;
                         out vec4 fragColor;
@@ -88,111 +88,114 @@
                             fragColor = vec4(colorSum.rgb, 1.0);
                         }
                     `
-      );
+            );
 
-      // 加载图形图像
-      const image = new Image();
-      image.src = "./images/cuteGirl.png";
-      image.onload = function () {
-        // 按窗口可用空间等比缩小 canvas
-        const scale = Math.min(
-          window.innerWidth / image.width,
-          window.innerHeight / image.height,
-          1
-        );
-        const canvasW = Math.round(image.width * scale);
-        const canvasH = Math.round(image.height * scale);
-        webgl.setCanvasSize(canvasW, canvasH);
+            // 加载图形图像
+            const image = new Image();
+            image.src = './images/cuteGirl.png';
+            image.onload = function () {
+                // 按窗口可用空间等比缩小 canvas
+                const scale = Math.min(
+                    window.innerWidth / image.width,
+                    window.innerHeight / image.height,
+                    1
+                );
+                const canvasW = Math.round(image.width * scale);
+                const canvasH = Math.round(image.height * scale);
+                webgl.setCanvasSize(canvasW, canvasH);
 
-        const W = webgl.gl.drawingBufferWidth;
-        const H = webgl.gl.drawingBufferHeight;
-        webgl.gl.viewport(0, 0, W, H);
-        const Mortho = MorthoMatrix(0, W, 0, H, -1, 1);
-        const uOrtho = webgl.gl.getUniformLocation(program, "u_Ortho");
-        webgl.gl.uniformMatrix4fv(uOrtho, false, Mortho);
+                const W = webgl.gl.drawingBufferWidth;
+                const H = webgl.gl.drawingBufferHeight;
+                webgl.gl.viewport(0, 0, W, H);
+                const Mortho = MorthoMatrix(0, W, 0, H, -1, 1);
+                const uOrtho = webgl.gl.getUniformLocation(program, 'u_Ortho');
+                webgl.gl.uniformMatrix4fv(uOrtho, false, Mortho);
 
-        const x0 = 0.0;
-        const y0 = 0.0;
-        const w = W;
-        const h = H;
-        webgl.VertexBufferData(
-          webgl.gl.ARRAY_BUFFER,
-          new Float32Array(
-            [
-              [x0, y0, 0.0],
-              [x0 + w, y0, 0.0],
-              [x0 + w, y0 + h, 0.0],
-              [x0, y0 + h, 0.0],
-            ].flat()
-          ),
-          webgl.gl.STATIC_DRAW,
-          [{ location: 0, size: 3 }]
-        );
-        webgl.VertexBufferData(
-          webgl.gl.ARRAY_BUFFER,
-          new Float32Array(
-            [
-              [0.0, 1.0], // 左下角 (0, 1) —— Y=1 是底部，对应图像顶部
-              [1.0, 1.0], // 右下角 (1, 1)
-              [1.0, 0.0], // 右上角 (1, 0) —— Y=0 是顶部，对应图像底部
-              [0.0, 0.0], // 左上角 (0, 0)
-            ].flat()
-          ),
-          webgl.gl.STATIC_DRAW,
-          [{ location: 1, size: 2 }]
-        );
-        webgl.IndexBufferData(
-          webgl.gl.ELEMENT_ARRAY_BUFFER,
-          new Uint16Array([0, 1, 2, 0, 2, 3]),
-          webgl.gl.STATIC_DRAW
-        );
+                const x0 = 0.0;
+                const y0 = 0.0;
+                const w = W;
+                const h = H;
+                webgl.VertexBufferData(
+                    webgl.gl.ARRAY_BUFFER,
+                    new Float32Array(
+                        [
+                            [x0, y0, 0.0],
+                            [x0 + w, y0, 0.0],
+                            [x0 + w, y0 + h, 0.0],
+                            [x0, y0 + h, 0.0],
+                        ].flat()
+                    ),
+                    webgl.gl.STATIC_DRAW,
+                    [{ location: 0, size: 3 }]
+                );
+                webgl.VertexBufferData(
+                    webgl.gl.ARRAY_BUFFER,
+                    new Float32Array(
+                        [
+                            [0.0, 1.0], // 左下角 (0, 1) —— Y=1 是底部，对应图像顶部
+                            [1.0, 1.0], // 右下角 (1, 1)
+                            [1.0, 0.0], // 右上角 (1, 0) —— Y=0 是顶部，对应图像底部
+                            [0.0, 0.0], // 左上角 (0, 0)
+                        ].flat()
+                    ),
+                    webgl.gl.STATIC_DRAW,
+                    [{ location: 1, size: 2 }]
+                );
+                webgl.IndexBufferData(
+                    webgl.gl.ELEMENT_ARRAY_BUFFER,
+                    new Uint16Array([0, 1, 2, 0, 2, 3]),
+                    webgl.gl.STATIC_DRAW
+                );
 
-        const texture = webgl.gl.createTexture();
-        webgl.gl.bindTexture(webgl.gl.TEXTURE_2D, texture);
-        webgl.gl.texParameteri(
-          webgl.gl.TEXTURE_2D,
-          webgl.gl.TEXTURE_WRAP_S,
-          webgl.gl.CLAMP_TO_EDGE
-        );
-        webgl.gl.texParameteri(
-          webgl.gl.TEXTURE_2D,
-          webgl.gl.TEXTURE_WRAP_T,
-          webgl.gl.CLAMP_TO_EDGE
-        );
-        webgl.gl.texParameteri(
-          webgl.gl.TEXTURE_2D,
-          webgl.gl.TEXTURE_MIN_FILTER,
-          webgl.gl.LINEAR
-        );
-        webgl.gl.texParameteri(
-          webgl.gl.TEXTURE_2D,
-          webgl.gl.TEXTURE_MAG_FILTER,
-          webgl.gl.LINEAR
-        );
+                const texture = webgl.gl.createTexture();
+                webgl.gl.bindTexture(webgl.gl.TEXTURE_2D, texture);
+                webgl.gl.texParameteri(
+                    webgl.gl.TEXTURE_2D,
+                    webgl.gl.TEXTURE_WRAP_S,
+                    webgl.gl.CLAMP_TO_EDGE
+                );
+                webgl.gl.texParameteri(
+                    webgl.gl.TEXTURE_2D,
+                    webgl.gl.TEXTURE_WRAP_T,
+                    webgl.gl.CLAMP_TO_EDGE
+                );
+                webgl.gl.texParameteri(
+                    webgl.gl.TEXTURE_2D,
+                    webgl.gl.TEXTURE_MIN_FILTER,
+                    webgl.gl.LINEAR
+                );
+                webgl.gl.texParameteri(
+                    webgl.gl.TEXTURE_2D,
+                    webgl.gl.TEXTURE_MAG_FILTER,
+                    webgl.gl.LINEAR
+                );
 
-        // 4.将图像数据上传到纹理对象
-        webgl.gl.texImage2D(
-          webgl.gl.TEXTURE_2D,
-          0,
-          webgl.gl.RGBA,
-          webgl.gl.RGBA,
-          webgl.gl.UNSIGNED_BYTE,
-          image
-        );
+                // 4.将图像数据上传到纹理对象
+                webgl.gl.texImage2D(
+                    webgl.gl.TEXTURE_2D,
+                    0,
+                    webgl.gl.RGBA,
+                    webgl.gl.RGBA,
+                    webgl.gl.UNSIGNED_BYTE,
+                    image
+                );
 
-        webgl.gl.activeTexture(webgl.gl.TEXTURE0);
-        webgl.gl.bindTexture(webgl.gl.TEXTURE_2D, texture);
-        const samplerLocation = webgl.gl.getUniformLocation(
-          program,
-          "u_Sampler"
-        );
-        webgl.gl.uniform1i(samplerLocation, 0);
+                webgl.gl.activeTexture(webgl.gl.TEXTURE0);
+                webgl.gl.bindTexture(webgl.gl.TEXTURE_2D, texture);
+                const samplerLocation = webgl.gl.getUniformLocation(
+                    program,
+                    'u_Sampler'
+                );
+                webgl.gl.uniform1i(samplerLocation, 0);
 
-        const uTexSize = webgl.gl.getUniformLocation(program, "u_TexSize");
-        webgl.gl.uniform2f(uTexSize, image.width, image.height);
+                const uTexSize = webgl.gl.getUniformLocation(
+                    program,
+                    'u_TexSize'
+                );
+                webgl.gl.uniform2f(uTexSize, image.width, image.height);
 
-        webgl.gl.drawArrays(webgl.gl.TRIANGLE_FAN, 0, 4);
-      };
-    </script>
-  </body>
+                webgl.gl.drawArrays(webgl.gl.TRIANGLE_FAN, 0, 4);
+            };
+        </script>
+    </body>
 </html>

@@ -1,4 +1,4 @@
-export { default as WebGL } from "./WebGL.js";
-export { default as Camera } from "./Camera.js";
-export { default as Object3D } from "./Object3D.js";
-export { default as Renderer } from "./Render.js";
+export { default as WebGL } from './webgl.js';
+export { default as Object3D } from './object3d.js';
+export { default as Camera } from './camera.js';
+export { default as Renderer } from './render.js';
