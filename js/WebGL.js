@@ -291,6 +291,29 @@ export default class WebGL {
         this.gl.bindBuffer(type, null);
         this.gl.deleteBuffer(BufferId);
     }
+    
+    
+    
+
+    /**
+     * 设置uniform 浮点数
+     * @param {*} program
+     * @param {*} name
+     * @param {*} value
+     * @returns
+     */
+    setUniform1f(program, name, value) {
+        if (!this.gl) {
+            console.error('gl上下文为空');
+            return;
+        }
+        const location = this.gl.getUniformLocation(program, name);
+        if (location === null) {
+            console.error('找不到uniform变量:', name);
+            return;
+        }
+        this.gl.uniform1f(location, value);
+    }
 
     /**
      * 设置uniform 二维向量
