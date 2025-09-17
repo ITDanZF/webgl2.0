@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<script type="module">
+  import { WebGL, Object3D, Camera } from "./js/index.js";
+  import { mulMat4 } from "./js/Math.js";
+  const webgl = new WebGL("canvas");
+
+  // 创建立方体的着色器程序
+  const program = webgl.useProgram(
+          `#version 300 es
+
+           uniform mat4 u_MVP;
+           layout(location = 0) in vec4 a_Position;
+
+           void main() {
+             gl_Position = u_MVP * a_Position;
+           }
+          `,
+      `#version 300 es
+       precision mediump float;
+
+       uniform vec4 u_Color;              // 材质颜色
+       uniform float u_ambientIntensity;  // 环境光强度
+       uniform vec3 u_ambientColor;       // 环境光颜色
+
+       out vec4 fragColor;
+
+       void main() {
+          // 环境光计算：材质颜色 * 环境光颜色 * 环境光强度
+          vec3 materialColor = u_Color.rgb;
+          vec3 ambient = materialColor * u_ambientColor * u_ambientIntensity;
+
+          fragColor = vec4(ambient, u_Color.a);
+       }
+      `
+  );
+
+  // 创建立方体的顶点位置
+  webgl.VertexBufferData(webgl.gl.ARRAY_BUFFER, new Float32Array(
+      [
+          [-0.5, -0.5,-0.5 ], // 0
+          [0.5, -0.5, -0.5 ], // 1
+          [0.5, 0.5,  -0.5 ], // 2
+          [-0.5, 0.5, -0.5 ], // 3
+
+          [-0.5, -0.5, 0.5], // 4
+          [0.5, -0.5, 0.5], // 5
+          [0.5, 0.5, 0.5], // 6
+          [-0.5, 0.5, 0.5], // 7
+      ].flat()
+  ), webgl.gl.STATIC_DRAW, [
+    {location: 0, size: 3}, // 位置
+  ])
+
+  webgl.IndexBufferData(webgl.gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(        [
+      [0, 1, 4,   4, 1, 5],
+      [1, 5, 6,   6, 2, 1],
+      [2, 3, 7,   7, 6, 2],
+      [0, 3, 7,   7, 4, 0],
+      [4, 5, 6,   6, 7, 5],
+      [0, 1, 2,   2, 3, 0],
+  ].flat()), webgl.gl.STATIC_DRAW)
+
+  // 使用Object3D创建立方体对象
+  const cube = new Object3D();
+  cube.setRotation(0, 40, 0);
+
+  // 创建透视摄像机
+  const camera = new Camera(webgl.canvas.width, webgl.canvas.height);
+  camera.EyePosition = [0, 0, 6]; // 设置相机位置
+  camera.TargetObject = [0, 0, 0]; // 明确设置目标点
+
+  // 手动更新视图矩阵
+  camera._updateViewMatrix();
+
+  // 计算mvp矩阵
+  const M = cube.ModelMatrix;
+  const V = camera.ViewMatrix;
+  const P = camera.ProjectionMatrix;
+
+  const vp = new Float32Array(16);
+  const mvp = new Float32Array(16);
+  mulMat4(P, V, vp);
+  mulMat4(vp, M, mvp);
+
+  webgl.setUniformMatrix4(program, "u_MVP", mvp);
+
+  // 环境光分量 = 环境光颜色(光源颜色) x 材质环境反射系数(材质颜色) x 环境光强度(光强度)
+  /**
+   * 环境光颜色:
+   * 环境中散射光的颜色，代表光源本身的颜色特性
+   * 白炽灯：vec3(1.0, 0.9, 0.7) (偏黄色)
+   * 日光：vec3(1.0, 1.0, 1.0) (白色)
+   * 蓝天：vec3(0.7, 0.8, 1.0) (偏蓝色)
+   *
+   * 材质环境反射系数: 材质颜色，物体本身的颜色特性
+   *
+   * 环境光强度：光强度，控制环境光的亮度强弱
+   * 夜晚：0.1 (很暗)
+   * 室内：0.3 (中等)
+   * 白天：0.6 (较亮)
+   *
+   */
+
+  // 材质颜色
+  webgl.setUniform4f(program, "u_Color", 1.0, 0.0, 0.0, 1.0);
+  // 环境光强度
+  webgl.setUniform1f(program, "u_ambientIntensity", 0.6);
+  // 环境光颜色
+  webgl.setUniform3f(program, "u_ambientColor", 0.7, 0.8, 1.0);
+
+
+  // 绘制
+  webgl.gl.clearColor(0.0, 0.0, 0.0, 0.0);
+  webgl.gl.enable(webgl.gl.DEPTH_TEST);
+  webgl.gl.clear(
+      webgl.gl.COLOR_BUFFER_BIT | webgl.gl.DEPTH_BUFFER_BIT
+  );
+  webgl.gl.drawElements(
+      webgl.gl.TRIANGLES,
+      36,
+      webgl.gl.UNSIGNED_SHORT,
+      0
+  );
+
+
+</script>
+</body>
+</html>
