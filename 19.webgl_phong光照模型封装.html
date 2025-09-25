@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<script type="module">
+    import { Shader } from './js/index.js';
+
+    const shader = new Shader()
+    console.log(shader.vertexFnsArray)
+    shader.setVertexMain(`
+    @include add;
+    int main(){
+        gl_Position = vec4(position, 1.0);
+        return 0;
+    }
+    `)
+
+    console.log(shader.getVertexShaderSource(), "xxxxxxxxxxx")
+</script>
+</body>
+</html>
