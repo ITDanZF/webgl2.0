@@ -9,8 +9,10 @@ export default class Shader {
     fragmentFnsArray = []
 
     constructor(version) {
-        this.vertexSource = "#version 300 es";
-        this.fragmentSource = "#version 300 es";
+        // 添加默认的 precision 声明；WebGL2 (#version 300 es) 中必须为 fragment shader 指定 float 精度
+        // 同时提前为 fragment shader 声明一个通用输出变量 fragColor
+        this.vertexSource = `#version 300 es\nprecision mediump float;\nprecision mediump int;`;
+        this.fragmentSource = `#version 300 es\nprecision mediump float;\nprecision mediump int;\nout vec4 fragColor;`;
 
         this.vertexFnsArray = [...Shader.vertexFns];
         this.fragmentFnsArray = [...Shader.fragmentFns];
@@ -49,7 +51,7 @@ export default class Shader {
 
         // 5. 拼成最终源码
         this.vertexSource = [
-            this.vertexSource,   // #version 300 es
+            this.vertexSource,   // #version 300 es + precision
             ...fnBodies,         // 依赖的函数体
             cleaned              // 主函数
         ].join('\n');
@@ -82,11 +84,17 @@ export default class Shader {
         // 4. 去掉主函数里的 @include 行
         const cleaned = fn.replace(includeRe, '');
 
+        // 如果用户已经自己声明了 out 变量, 不重复添加 (简单检测 out vec4 或 fragColor 关键字)
+        let header = this.fragmentSource;
+        if (!/out\s+vec4\s+\w+/.test(header)) {
+            header += `\nout vec4 fragColor;`;
+        }
+
         // 5. 拼成最终源码
         this.fragmentSource = [
-            this.fragmentSource,   // #version 300 es
-            ...fnBodies,           // 依赖的函数体
-            cleaned                // 主函数
+            header,              // #version 300 es + precision + out 声明
+            ...fnBodies,         // 依赖的函数体
+            cleaned              // 主函数
         ].join('\n');
     }
 

@@ -6,19 +6,32 @@
 </head>
 <body>
 <script type="module">
-    import { Shader } from './js/index.js';
+    import { Shader, WebGL } from './js/index.js';
 
+    const webgl = new WebGL()
     const shader = new Shader()
-    console.log(shader.vertexFnsArray)
     shader.setVertexMain(`
-    @include add;
-    int main(){
-        gl_Position = vec4(position, 1.0);
-        return 0;
-    }
+        @include add;
+        void main(){
+            gl_Position = vec4(0.0, 0.0,0.0, 1.0);
+        }
     `)
 
-    console.log(shader.getVertexShaderSource(), "xxxxxxxxxxx")
+    shader.setFragmentMain(`
+        @include PhongLighting;
+        void main(){
+            fragColor = vec4(1.0,1.0,1.0,1.0);
+        }
+    `)
+
+    console.log(shader.getFragmentShaderSource());
+
+    // 注册着色器函数
+    const program =  webgl.useProgram(shader.getVertexShaderSource(), shader.getFragmentShaderSource())
+
+    // 设置顶点数据
+    // webgl.VertexBufferData()
+
 </script>
 </body>
 </html>
