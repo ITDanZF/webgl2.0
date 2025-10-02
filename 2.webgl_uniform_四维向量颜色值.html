@@ -6,22 +6,14 @@
     <title>Document</title>
   </head>
   <body>
-    <script src="./js/Render.js"></script>
-    <script src="./js/WebGL.js"></script>
     <script type="module">
-      import Render from "./js/Render.js";
       import WebGL from "./js/WebGL.js";
-
       const webgl = new WebGL("webgl-canvas");
-      const render = new Render();
-
-      // 初始化渲染器
-      render.init(webgl.gl);
 
       // 定义着色器
       const vertex = `#version 300 es
 
-      layout(location = 0) in vec4 a_Position;
+      layout(location = 0) in vec4  a_Position;
       void main () {
         gl_Position = a_Position;
       }`;
@@ -36,21 +28,21 @@
       `;
 
       // 创建着色器程序
-      const program = render.createProgram(
-        render.createShader(render.gl.VERTEX_SHADER, vertex),
-        render.createShader(render.gl.FRAGMENT_SHADER, fragment)
+      const program = webgl.createProgram(
+        webgl.createShader(webgl.gl.VERTEX_SHADER, vertex),
+        webgl.createShader(webgl.gl.FRAGMENT_SHADER, fragment)
       );
       webgl.gl.useProgram(program); // 把编译连接好的着色器程序载入当前webgl上下文，为接下来的渲染管线绘制提供着色器程序
 
       // 创建并绑定缓冲区
-      const positionBuffer = render.Bind(render.gl.ARRAY_BUFFER);
+      const positionBuffer = webgl.Bind(webgl.gl.ARRAY_BUFFER);
 
       // 准备数据到缓冲区 并指定内存布局
-      const positionData = new Float32Array([-0.5, -0.5, 0.5, -0.5, 0.0, 0.5]);
+      const positionData = new Float32Array([-0.5, -0.5,0.0, 0.5, -0.5, 0.0, 0.0, 0.5, 0.0]);
       webgl.gl.bufferData(
-        render.gl.ARRAY_BUFFER,
+        webgl.gl.ARRAY_BUFFER,
         positionData,
-        render.gl.STATIC_DRAW
+        webgl.gl.STATIC_DRAW
       );
       webgl.gl.vertexAttribPointer(0, 3, webgl.gl.FLOAT, false, 0, 0);
 

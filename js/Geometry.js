@@ -1,401 +1,146 @@
+/**
+ * Geometry 类只作为一个基类，用于整合底层的数据，包括顶点、法线、纹理坐标等。
+ * 具体的几何体类（如 BoxGeometry、SphereGeometry 等）将继承自该类，并实现各自的顶点数据生成逻辑。
+ *
+ * @class Geometry
+ */
+import { flattenIf2D, toFloat32 } from './utils.js';
 export default class Geometry {
-    /**
-     * 基础几何数据与 GPU 资源管理类
-     * 仅负责顶点/索引/缓冲/包围体/法线等与形状相关的逻辑，不包含世界变换。
-     */
+    vertices = []; // 顶点位置
+    normals = []; // 法线
+    uvs = []; // 纹理坐标
+    indices = [];// 索引
+    colors = []; // 每个顶点的颜色
+    positions = []; // 综合顶点数据(位置坐标、法线、纹理坐标、颜色等)
     constructor(options = {}) {
-        // attributes: Map<string, { data:TypedArray, size:number, type:number|null, normalized:boolean, stride:number, offset:number, usage:number|null, location:number|null }>
-        this.attributes = new Map();
-        // 索引数据 (Uint16Array | Uint32Array)
-        this.index = null;
+        const { vertices = [], normals = [], uvs = [], indices = [], colors = [] } = options;
 
-        // GPU 资源句柄
-        this.buffers = {
-            vao: null,
-            vbos: new Map(), // name -> WebGLBuffer
-            ebo: null
-        };
-
-        // 统计
-        this.vertexCount = 0; // 非索引模式下顶点数量
-        this.indexCount = 0;  // 索引数量（若存在 indices）
-
-        // 绘制模式 (延迟到 build 时确定, 默认 gl.TRIANGLES)
-        this.drawMode = options.drawMode || null;
-
-        // 包围体
-        this.boundingBox = null;    // { min:[x,y,z], max:[x,y,z] }
-        this.boundingSphere = null; // { center:[x,y,z], radius }
-        this._boundsDirty = true;
-
-        // 状态标记
-        this._structureDirty = true;      // 布局/属性新增删除
-        this._dataDirty = new Set();      // 某些 attribute 只更新数据
-        this._built = false;              // 是否已上传
-
-        // 自动分配 attribute location 时的游标
-        this._nextAutoLocation = 0;
-
-        // 可选：初始化时直接注入 attributes / index
-        if (options.attributes) {
-            for (const [name, desc] of Object.entries(options.attributes)) {
-                // desc: { data, size, ... }
-                this.setAttribute(name, desc.data, desc.size, desc);
-            }
+        if (!vertices || vertices.length === 0) {
+            throw new Error("Geometry: 'vertices' array is required and cannot be empty.");
         }
-        if (options.index) this.setIndex(options.index);
-    }
-
-    /* ------------------------------- Attribute API ------------------------------- */
-    /**
-     * 新增或替换一个 attribute
-     * @param {string} name
-     * @param {TypedArray} data
-     * @param {number} size 组件个数(1~4)
-     * @param {object} options 可选: { type, normalized, stride, offset, usage, location }
-     */
-    setAttribute(name, data, size, options = {}) {
-        if (!data || typeof data.length !== 'number') {
-            throw new Error(`setAttribute('${name}') 需要 TypedArray`);
-        }
-        if (size <= 0 || size > 4) {
-            throw new Error(`Attribute '${name}' 的 size 必须在 1~4 之间`);
-        }
-        const attr = {
-            data,
-            size,
-            type: options.type || null, // 构建时若为 null 则使用 gl.FLOAT 推断
-            normalized: !!options.normalized,
-            stride: options.stride || 0,
-            offset: options.offset || 0,
-            usage: options.usage || null, // 构建时若为 null 默认 gl.STATIC_DRAW
-            location: options.location ?? null // 若未传入则自动分配
-        };
-        this.attributes.set(name, attr);
-        this._structureDirty = true;
-        if (name === 'position') this._boundsDirty = true;
-        // 顶点数量依据第一个 attribute 推断
-        if (name === 'position' || this.vertexCount === 0) {
-            this.vertexCount = data.length / size;
-        }
-        return this;
+        this.vertices = vertices;
+        this.normals = normals;
+        this.uvs = uvs;
+        this.indices = indices;
+        this.colors = colors;
     }
 
     /**
-     * 更新已存在 attribute 的数据（长度必须一致，否则建议重新 setAttribute）
+     * 1.完成vertices的初始化
+     * vertices接收普通一维度数组也接收Float32 以及 float64数组，也就是普通二维形式的数组
+     * 2.初始化normals，uvs，indices
+     * 如果上面有一个参数没有传递，则需要根据vertices进行初始化
+     * 3.colors 没有传递则不进行初始化
+     * 4.将初始化或者已经传递的值组合进positions中
      */
-    updateAttribute(name, newData) {
-        const attr = this.attributes.get(name);
-        if (!attr) throw new Error(`updateAttribute: attribute '${name}' 不存在`);
-        if (newData.length !== attr.data.length) {
-            throw new Error(`updateAttribute('${name}') 新旧数据长度不一致，若需更改长度请使用 setAttribute`);
+    initData() {
+
+        // 1. 处理顶点数据
+        this.vertices = flattenIf2D(this.vertices);
+        this.vertices = toFloat32(this.vertices);
+        if (this.vertices.length % 3 !== 0) {
+            throw new Error(`Geometry: vertices length (${this.vertices.length}) must be multiple of 3.`);
         }
-        attr.data = newData;
-        this._dataDirty.add(name);
-        if (name === 'position') this._boundsDirty = true;
-        return this;
-    }
+        const vertexCount = this.vertices.length / 3;
 
-    hasAttribute(name) { return this.attributes.has(name); }
-
-    removeAttribute(name) {
-        if (this.attributes.delete(name)) {
-            this._structureDirty = true;
-            if (name === 'position') {
-                this.vertexCount = this._recalcVertexCount();
-                this._boundsDirty = true;
-            }
-        }
-    }
-
-    _recalcVertexCount() {
-        // 以第一个 attribute 重新推断
-        for (const [_, a] of this.attributes) {
-            return a.data.length / a.size;
-        }
-        return 0;
-    }
-
-    /* --------------------------------- Index API --------------------------------- */
-    setIndex(data) {
-        if (data && typeof data.length === 'number') {
-            if (!(data instanceof Uint16Array || data instanceof Uint32Array)) {
-                // 自动选择类型
-                const max = this._maxArrayValue(data);
-                if (max < 65536) data = new Uint16Array(data);
-                else data = new Uint32Array(data);
-            }
-            this.index = data;
-            this.indexCount = data.length;
-            this._structureDirty = true;
-        } else if (data == null) {
-            this.clearIndex();
+        // 2. 处理法线 (缺省 -> 全 0)
+        if (!this.normals || this.normals.length === 0) {
+            this.normals = new Float32Array(vertexCount * 3); // 全 0
         } else {
-            throw new Error('setIndex 需要 (Uint16|Uint32)Array 或可迭代对象');
-        }
-        return this;
-    }
-
-    clearIndex() {
-        if (this.index) {
-            this.index = null;
-            this.indexCount = 0;
-            this._structureDirty = true;
-        }
-    }
-
-    /* ------------------------------- Build / Bind -------------------------------- */
-    /**
-     * 构建 VAO / VBO，将数据上传 GPU。
-     * @param {WebGL2RenderingContext} gl
-     * @param {Object} locations attributeName -> location （可选；优先级低于 setAttribute 时显式提供的 location）
-     */
-    build(gl, locations = {}) {
-        if (!gl) throw new Error('build 需要 gl 上下文');
-        if (this.attributes.size === 0) throw new Error('Geometry 没有任何 attribute');
-        // 推断 drawMode
-        if (this.drawMode == null) this.drawMode = gl.TRIANGLES;
-
-        // 若已有旧 VAO，先释放（完整重建）
-        if (this._structureDirty && this._built) {
-            this._deleteGpu(gl);
-        }
-
-        // 创建 VAO
-        if (!this.buffers.vao) {
-            this.buffers.vao = gl.createVertexArray();
-        }
-        gl.bindVertexArray(this.buffers.vao);
-
-        // 逐 attribute 创建 / 绑定
-        for (const [name, attr] of this.attributes) {
-            // 已存在且只数据更新 -> 忽略（后续处理 _dataDirty）
-            if (!this._structureDirty && this.buffers.vbos.has(name)) continue;
-            // 新建/重建 VBO
-            const buffer = gl.createBuffer();
-            this.buffers.vbos.set(name, buffer);
-            gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-            gl.bufferData(
-                gl.ARRAY_BUFFER,
-                attr.data,
-                attr.usage || gl.STATIC_DRAW
-            );
-            // 解析 location
-            if (attr.location == null) {
-                if (name in locations) attr.location = locations[name];
-                else attr.location = this._nextAutoLocation++;
-            }
-            const type = attr.type || gl.FLOAT;
-            gl.enableVertexAttribArray(attr.location);
-            gl.vertexAttribPointer(
-                attr.location,
-                attr.size,
-                type,
-                attr.normalized,
-                attr.stride,
-                attr.offset
-            );
-        }
-
-        // 上传 index
-        if (this.index) {
-            if (!this.buffers.ebo || this._structureDirty) {
-                if (this.buffers.ebo) gl.deleteBuffer(this.buffers.ebo);
-                this.buffers.ebo = gl.createBuffer();
-            }
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.buffers.ebo);
-            gl.bufferData(
-                gl.ELEMENT_ARRAY_BUFFER,
-                this.index,
-                gl.STATIC_DRAW
-            );
-        }
-
-        // 处理纯数据更新（不改变结构）
-        if (!this._structureDirty && this._dataDirty.size) {
-            for (const name of this._dataDirty) {
-                const attr = this.attributes.get(name);
-                const buffer = this.buffers.vbos.get(name);
-                if (!attr || !buffer) continue;
-                gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-                gl.bufferSubData(gl.ARRAY_BUFFER, 0, attr.data);
+            this.normals = flattenIf2D(this.normals);
+            this.normals = toFloat32(this.normals);
+            if (this.normals.length !== vertexCount * 3) {
+                throw new Error(`Geometry: normals length (${this.normals.length}) must be vertexCount * 3 (${vertexCount * 3}).`);
             }
         }
 
-        gl.bindVertexArray(null);
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-        this._dataDirty.clear();
-        this._structureDirty = false;
-        this._built = true;
-        return this;
-    }
-
-    /** 绑定 VAO 以供绘制 */
-    bind(gl) {
-        if (!this._built || this._structureDirty || this._dataDirty.size) {
-            this.build(gl); // 自动增量或重建
-        }
-        gl.bindVertexArray(this.buffers.vao);
-    }
-
-    /** 解绑 */
-    unbind(gl) {
-        gl.bindVertexArray(null);
-    }
-
-    /** 释放 GPU 资源 */
-    dispose(gl) {
-        this._deleteGpu(gl);
-        this.attributes.clear();
-        this.index = null;
-        this.vertexCount = 0;
-        this.indexCount = 0;
-        this.boundingBox = null;
-        this.boundingSphere = null;
-        this._built = false;
-    }
-
-    _deleteGpu(gl) {
-        if (!gl) return;
-        if (this.buffers.vao) {
-            gl.deleteVertexArray(this.buffers.vao);
-            this.buffers.vao = null;
-        }
-        if (this.buffers.ebo) {
-            gl.deleteBuffer(this.buffers.ebo);
-            this.buffers.ebo = null;
-        }
-        for (const [, buf] of this.buffers.vbos) {
-            gl.deleteBuffer(buf);
-        }
-        this.buffers.vbos.clear();
-    }
-
-    /* ------------------------------- Bounds / Normals ---------------------------- */
-    /** 计算/获取包围盒 */
-    getBoundingBox() {
-        if (this._boundsDirty || !this.boundingBox) this.computeBoundingBox();
-        return this.boundingBox;
-    }
-
-    /** 计算/获取包围球 */
-    getBoundingSphere() {
-        if (this._boundsDirty || !this.boundingSphere) this.computeBoundingSphere();
-        return this.boundingSphere;
-    }
-
-    computeBoundingBox() {
-        const posAttr = this.attributes.get('position');
-        if (!posAttr) throw new Error('computeBoundingBox 需要 position attribute');
-        const a = posAttr.data;
-        const min = [Infinity, Infinity, Infinity];
-        const max = [-Infinity, -Infinity, -Infinity];
-        for (let i = 0; i < a.length; i += posAttr.size) {
-            const x = a[i];
-            const y = a[i + 1];
-            const z = posAttr.size > 2 ? a[i + 2] : 0;
-            if (x < min[0]) min[0] = x;
-            if (y < min[1]) min[1] = y;
-            if (z < min[2]) min[2] = z;
-            if (x > max[0]) max[0] = x;
-            if (y > max[1]) max[1] = y;
-            if (z > max[2]) max[2] = z;
-        }
-        this.boundingBox = { min, max };
-        this._boundsDirty = false;
-        return this.boundingBox;
-    }
-
-    computeBoundingSphere() {
-        const box = this.getBoundingBox();
-        const center = [
-            (box.min[0] + box.max[0]) / 2,
-            (box.min[1] + box.max[1]) / 2,
-            (box.min[2] + box.max[2]) / 2
-        ];
-        const posAttr = this.attributes.get('position');
-        const a = posAttr.data;
-        let maxDistSq = 0;
-        for (let i = 0; i < a.length; i += posAttr.size) {
-            const x = a[i] - center[0];
-            const y = a[i + 1] - center[1];
-            const z = (posAttr.size > 2 ? a[i + 2] : 0) - center[2];
-            const d = x * x + y * y + z * z;
-            if (d > maxDistSq) maxDistSq = d;
-        }
-        this.boundingSphere = { center, radius: Math.sqrt(maxDistSq) };
-        return this.boundingSphere;
-    }
-
-    /** 生成顶点法线（若已存在 normal 则跳过） */
-    computeNormals(force = false) {
-        if (this.hasAttribute('normal') && !force) return this.attributes.get('normal').data;
-        const posAttr = this.attributes.get('position');
-        if (!posAttr) throw new Error('computeNormals 需要 position');
-        const vSize = posAttr.size; // 支持 vec2 -> 自动补 0
-        const vertCount = posAttr.data.length / vSize;
-        const normals = new Float32Array(vertCount * 3);
-
-        const addFaceNormal = (ia, ib, ic) => {
-            const ax = posAttr.data[ia * vSize];
-            const ay = posAttr.data[ia * vSize + 1];
-            const az = vSize > 2 ? posAttr.data[ia * vSize + 2] : 0;
-            const bx = posAttr.data[ib * vSize];
-            const by = posAttr.data[ib * vSize + 1];
-            const bz = vSize > 2 ? posAttr.data[ib * vSize + 2] : 0;
-            const cx = posAttr.data[ic * vSize];
-            const cy = posAttr.data[ic * vSize + 1];
-            const cz = vSize > 2 ? posAttr.data[ic * vSize + 2] : 0;
-            // (b-a) x (c-a)
-            const abx = bx - ax, aby = by - ay, abz = bz - az;
-            const acx = cx - ax, acy = cy - ay, acz = cz - az;
-            const nx = aby * acz - abz * acy;
-            const ny = abz * acx - abx * acz;
-            const nz = abx * acy - aby * acx;
-            normals[ia * 3] += nx; normals[ia * 3 + 1] += ny; normals[ia * 3 + 2] += nz;
-            normals[ib * 3] += nx; normals[ib * 3 + 1] += ny; normals[ib * 3 + 2] += nz;
-            normals[ic * 3] += nx; normals[ic * 3 + 1] += ny; normals[ic * 3 + 2] += nz;
-        };
-
-        if (this.index) {
-            for (let i = 0; i < this.index.length; i += 3) {
-                addFaceNormal(this.index[i], this.index[i + 1], this.index[i + 2]);
-            }
+        // 3. 处理 UV (缺省 -> 全 0)
+        if (!this.uvs || this.uvs.length === 0) {
+            this.uvs = new Float32Array(vertexCount * 2); // 全 0
         } else {
-            for (let i = 0; i < vertCount; i += 3) {
-                addFaceNormal(i, i + 1, i + 2);
+            this.uvs = flattenIf2D(this.uvs);
+            this.uvs = toFloat32(this.uvs);
+            if (this.uvs.length !== vertexCount * 2) {
+                throw new Error(`Geometry: uvs length (${this.uvs.length}) must be vertexCount * 2 (${vertexCount * 2}).`);
             }
         }
 
-        // 归一化
-        for (let i = 0; i < normals.length; i += 3) {
-            const x = normals[i];
-            const y = normals[i + 1];
-            const z = normals[i + 2];
-            const len = Math.hypot(x, y, z) || 1;
-            normals[i] = x / len;
-            normals[i + 1] = y / len;
-            normals[i + 2] = z / len;
+        // 4. 处理索引 (缺省 -> 顺序索引)
+        if (!this.indices || this.indices.length === 0) {
+            // 如果顶点数小于 65536 使用 Uint16Array, 否则使用 Uint32Array (需 WebGL2 支持)
+            const IndexArrayType = vertexCount < 65536 ? Uint16Array : Uint32Array;
+            this.indices = new IndexArrayType(vertexCount);
+            for (let i = 0; i < vertexCount; i++) this.indices[i] = i;
+        } else {
+            // 如果是普通数组，尽量压缩类型
+            if (!(this.indices instanceof Uint16Array) && !(this.indices instanceof Uint32Array)) {
+                const maxIndex = Math.max(...this.indices);
+                const IndexArrayType = maxIndex < 65536 ? Uint16Array : Uint32Array;
+                this.indices = new IndexArrayType(this.indices);
+            }
         }
 
-        this.setAttribute('normal', normals, 3); // 会标记 structureDirty
-        this._structureDirty = true; // 重新上传
-        return normals;
-    }
+        // 5. 处理颜色 (可选) 允许 3 或 4 通道
+        let colorSize = 0; // 每个顶点的颜色分量数 (0 表示未提供)
+        if (this.colors && this.colors.length > 0) {
+            this.colors = flattenIf2D(this.colors);
+            // 判断是 3 通道还是 4 通道
+            const cLen = this.colors.length;
+            if (cLen % vertexCount !== 0) {
+                throw new Error(`Geometry: colors length (${cLen}) must be divisible by vertexCount (${vertexCount}).`);
+            }
+            colorSize = cLen / vertexCount;
+            if (colorSize !== 3 && colorSize !== 4) {
+                throw new Error(`Geometry: colors components per vertex must be 3 or 4, got ${colorSize}.`);
+            }
+            // 统一转换为 Float32
+            this.colors = toFloat32(this.colors);
+        }
+        this._colorSize = colorSize; // 记录内部颜色分量数，后续可用于设置 attributePointer
 
-    /* --------------------------------- Utilities --------------------------------- */
-    _maxArrayValue(arr) {
-        let m = -Infinity; for (let i = 0; i < arr.length; i++) if (arr[i] > m) m = arr[i]; return m;
-    }
+        // 6. 组装 interleaved positions
+        // Layout 顺序: position(3) | normal(3) | uv(2) | color(colorSize 可为 0/3/4)
+        const stride = 3 + 3 + 2 + (colorSize || 0);
+        const interleaved = new Float32Array(vertexCount * stride);
 
-    /** 返回绘制需要的信息 */
-    getDrawInfo() {
-        return {
-            mode: this.drawMode,
-            count: this.index ? this.indexCount : this.vertexCount,
-            indexed: !!this.index,
-            type: this.index ? (this.index instanceof Uint32Array ? 'UNSIGNED_INT' : 'UNSIGNED_SHORT') : null
+        for (let i = 0; i < vertexCount; i++) {
+            let offset = i * stride;
+            // position
+            interleaved[offset++] = this.vertices[i * 3];
+            interleaved[offset++] = this.vertices[i * 3 + 1];
+            interleaved[offset++] = this.vertices[i * 3 + 2];
+            // normal
+            interleaved[offset++] = this.normals[i * 3];
+            interleaved[offset++] = this.normals[i * 3 + 1];
+            interleaved[offset++] = this.normals[i * 3 + 2];
+            // uv
+            interleaved[offset++] = this.uvs[i * 2];
+            interleaved[offset++] = this.uvs[i * 2 + 1];
+            // colors (如有)
+            if (colorSize) {
+                interleaved[offset++] = this.colors[i * colorSize];
+                interleaved[offset++] = this.colors[i * colorSize + 1];
+                interleaved[offset++] = this.colors[i * colorSize + 2];
+                if (colorSize === 4) {
+                    interleaved[offset++] = this.colors[i * colorSize + 3];
+                }
+            }
+        }
+
+        this.positions = interleaved;
+        this.strideInfo = {
+            vertexCount,
+            colorSize,
+            stride,                 // 每个顶点总分量数 (float 个数)
+            byteStride: stride * 4,  // 每个顶点的字节大小
+            layout: {
+                position: { size: 3, offset: 0 },
+                normal: { size: 3, offset: 3 },
+                uv: { size: 2, offset: 6 },
+                color: colorSize ? { size: colorSize, offset: 8 } : null
+            }
         };
+
+        return this; // 支持链式调用
     }
 }

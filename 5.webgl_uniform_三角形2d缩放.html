@@ -6,19 +6,11 @@
     <title>Document</title>
   </head>
   <body>
-    <script src="./js/Render.js"></script>
-    <script src="./js/WebGL.js"></script>
-    <script src="./js/Math.js"></script>
     <script type="module">
-      import Render from "./js/Render.js";
       import WebGL from "./js/WebGL.js";
       import { RotateMatrix2D } from "./js/Math.js";
 
       const webgl = new WebGL("webgl-canvas");
-      const render = new Render();
-
-      // 初始化渲染器
-      render.init(webgl.gl);
 
       // 创建着色器程序
       const vertex = `#version 300 es
