@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Title</title>
+  </head>
+  <body>
+    <script type="module">
+      import { Shader, WebGL } from "./js/index.js";
+
+      const webgl = new WebGL();
+      const shader = new Shader();
+      shader.setVertexMain(`
+        layout(location = 0) in vec3 a_Position;
+        void main(){
+            gl_Position = vec4(a_Position, 1.0);
+        }
+    `);
+
+      shader.setFragmentMain(`
+        @include PhongLighting;
+        void main(){
+            fragColor = vec4(1.0,1.0,1.0,1.0);
+        }
+    `);
+
+      // 注册着色器函数
+      const program = webgl.useProgram(
+        shader.getVertexShaderSource(),
+        shader.getFragmentShaderSource()
+      );
+
+      // 使用经纬线法生成球的数据
+      /**
+       * 纬度：垂直旋转角度，phi ∈ [-90, 90]
+       * 经度：水平旋转角度，theta ∈ [0, 360]
+       *
+       * 设基于经纬度的参数方程函数为 f(theta, phi)
+       * 假设球的经度为theta，纬度为phi，球心为o(0,0,0),球半径为R
+       * theta ∈ [0, 360] phi ∈ [-90, 90]
+       *
+       * 假设球面上一点p(x,y,z)的坐标为：
+       * x = R * cos(theta) * cos(phi)
+       * y = R * sin(theta) * cos(phi)
+       * z = R * sin(phi)
+       *
+       *
+       * */
+      let vertices = [];
+      let radius = 1.0;
+      function getSphereData(radius, vertices) {
+        for (let i = 0; i < 360; i += 1) {
+          for (let j = -90; j <= 90; j += 1) {
+            const theta = (i * Math.PI) / 180; // 经度 → 弧度
+            const phi = (j * Math.PI) / 180; // 纬度 → 弧度
+            const x = radius * Math.cos(theta) * Math.cos(phi);
+            const y = radius * Math.sin(theta) * Math.cos(phi);
+            const z = radius * Math.sin(phi);
+            vertices.push(x, y, z);
+          }
+        }
+        return vertices;
+      }
+      vertices = getSphereData(radius, vertices);
+
+      /**
+       * 球面的索引数据
+       *  (i,j)   (i+1,j)
+       *      ┌-----┐
+       *      |   / |
+       *      | /   |
+       *      └-----┘
+       *  (i,j+1) (i+1,j+1)
+       *
+       * */
+      let indices = [];
+      function getSphereIndices() {
+        const rows = 181;
+        const cols = 360;
+        for (let i = 0; i < cols; ++i) {
+          const ni = (i + 1) % cols; // 经度循环
+          for (let j = 0; j < rows - 1; ++j) {
+            const curr = i * rows + j;
+            const next = curr + 1;
+            const currR = ni * rows + j;
+            const nextR = currR + 1;
+
+            // 四边形 → 2 个三角形
+            indices.push(curr, currR, next);
+            indices.push(currR, nextR, next);
+          }
+        }
+        return indices; // 388800 个索引
+      }
+      indices = getSphereIndices();
+
+      // 注册顶点数据
+      webgl.VertexBufferData(
+        webgl.gl.ARRAY_BUFFER,
+        new Float32Array(vertices),
+        webgl.gl.STATIC_DRAW,
+        [{ location: 0, size: 3 }]
+      );
+      webgl.IndexBufferData(
+        webgl.gl.ELEMENT_ARRAY_BUFFER,
+        new Uint32Array(indices),
+        webgl.gl.STATIC_DRAW
+      );
+
+      // 设置顶点数据
+      // webgl.VertexBufferData()
+    </script>
+  </body>
+</html>
