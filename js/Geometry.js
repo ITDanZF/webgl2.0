@@ -5,6 +5,7 @@
  * @class Geometry
  */
 import { flattenIf2D, toFloat32 } from './utils.js';
+import Check from "./Check";
 export default class Geometry {
     vertices = []; // 顶点位置
     normals = []; // 法线
@@ -18,129 +19,95 @@ export default class Geometry {
         if (!vertices || vertices.length === 0) {
             throw new Error("Geometry: 'vertices' array is required and cannot be empty.");
         }
-        this.vertices = vertices;
-        this.normals = normals;
+        this.vertices = this.initVertices(vertices);
+        this.normals = this.initNormals(normals);
         this.uvs = uvs;
         this.indices = indices;
         this.colors = colors;
     }
 
     /**
-     * 1.完成vertices的初始化
-     * vertices接收普通一维度数组也接收Float32 以及 float64数组，也就是普通二维形式的数组
-     * 2.初始化normals，uvs，indices
-     * 如果上面有一个参数没有传递，则需要根据vertices进行初始化
-     * 3.colors 没有传递则不进行初始化
-     * 4.将初始化或者已经传递的值组合进positions中
+     * 初始化顶点数据
+     * @param positions
      */
-    initData() {
+    initVertices(positions) {
+        let vertexArray = null;
 
-        // 1. 处理顶点数据
-        this.vertices = flattenIf2D(this.vertices);
-        this.vertices = toFloat32(this.vertices);
-        if (this.vertices.length % 3 !== 0) {
-            throw new Error(`Geometry: vertices length (${this.vertices.length}) must be multiple of 3.`);
-        }
-        const vertexCount = this.vertices.length / 3;
-
-        // 2. 处理法线 (缺省 -> 全 0)
-        if (!this.normals || this.normals.length === 0) {
-            this.normals = new Float32Array(vertexCount * 3); // 全 0
+        if (Array.isArray(positions)) {
+            if (Check.isOneDimensionalArray(positions)) {
+                vertexArray = toFloat32(positions);
+            } else if (Check.isTwoDimensionalArray(positions)) {
+                const flattened = flattenIf2D(positions);
+                vertexArray = toFloat32(flattened);
+            } else {
+                console.error("Geometry: 'vertices' array must be 1D or 2D.");
+            }
+        } else if (positions instanceof Float32Array) {
+            vertexArray = positions;
+        } else if (positions instanceof Float64Array) {
+            vertexArray = new Float32Array(positions);
         } else {
-            this.normals = flattenIf2D(this.normals);
-            this.normals = toFloat32(this.normals);
-            if (this.normals.length !== vertexCount * 3) {
-                throw new Error(`Geometry: normals length (${this.normals.length}) must be vertexCount * 3 (${vertexCount * 3}).`);
-            }
+            console.error("Geometry: 'vertices' must be an Array, Float32Array, or Float64Array.");
+        }
+        return vertexArray;
+    }
+
+    /**
+     * 初始化法线数据
+     * @param normals
+     */
+    initNormals(normals) {
+
+        if (normals && Array.isArray(normals) && normals.length > 0) {
+            return  new Float32Array(normals);
         }
 
-        // 3. 处理 UV (缺省 -> 全 0)
-        if (!this.uvs || this.uvs.length === 0) {
-            this.uvs = new Float32Array(vertexCount * 2); // 全 0
-        } else {
-            this.uvs = flattenIf2D(this.uvs);
-            this.uvs = toFloat32(this.uvs);
-            if (this.uvs.length !== vertexCount * 2) {
-                throw new Error(`Geometry: uvs length (${this.uvs.length}) must be vertexCount * 2 (${vertexCount * 2}).`);
-            }
+        if (!this.vertices || this.vertices.length === 0) {
+            return null;
         }
 
-        // 4. 处理索引 (缺省 -> 顺序索引)
-        if (!this.indices || this.indices.length === 0) {
-            // 如果顶点数小于 65536 使用 Uint16Array, 否则使用 Uint32Array (需 WebGL2 支持)
-            const IndexArrayType = vertexCount < 65536 ? Uint16Array : Uint32Array;
-            this.indices = new IndexArrayType(vertexCount);
-            for (let i = 0; i < vertexCount; i++) this.indices[i] = i;
-        } else {
-            // 如果是普通数组，尽量压缩类型
-            if (!(this.indices instanceof Uint16Array) && !(this.indices instanceof Uint32Array)) {
-                const maxIndex = Math.max(...this.indices);
-                const IndexArrayType = maxIndex < 65536 ? Uint16Array : Uint32Array;
-                this.indices = new IndexArrayType(this.indices);
-            }
+        // 如果没有提供法线数据，则计算法线
+        const v = this.vertices;          // 一定是 Float32Array
+        const numVerts = v.length;
+        if (numVerts % 9 !== 0) {
+            console.warn('Geometry: vertices length is not a multiple of 9 (3 verts * 3 components).');
         }
 
-        // 5. 处理颜色 (可选) 允许 3 或 4 通道
-        let colorSize = 0; // 每个顶点的颜色分量数 (0 表示未提供)
-        if (this.colors && this.colors.length > 0) {
-            this.colors = flattenIf2D(this.colors);
-            // 判断是 3 通道还是 4 通道
-            const cLen = this.colors.length;
-            if (cLen % vertexCount !== 0) {
-                throw new Error(`Geometry: colors length (${cLen}) must be divisible by vertexCount (${vertexCount}).`);
-            }
-            colorSize = cLen / vertexCount;
-            if (colorSize !== 3 && colorSize !== 4) {
-                throw new Error(`Geometry: colors components per vertex must be 3 or 4, got ${colorSize}.`);
-            }
-            // 统一转换为 Float32
-            this.colors = toFloat32(this.colors);
-        }
-        this._colorSize = colorSize; // 记录内部颜色分量数，后续可用于设置 attributePointer
+        const n = new Float32Array(numVerts); // 自动初始化为 0
 
-        // 6. 组装 interleaved positions
-        // Layout 顺序: position(3) | normal(3) | uv(2) | color(colorSize 可为 0/3/4)
-        const stride = 3 + 3 + 2 + (colorSize || 0);
-        const interleaved = new Float32Array(vertexCount * stride);
+        // 3. 逐三角形计算面法线
+        for (let i = 0; i < numVerts; i += 9) {
+            const i0 = i;
+            const i1 = i + 3;
+            const i2 = i + 6;
 
-        for (let i = 0; i < vertexCount; i++) {
-            let offset = i * stride;
-            // position
-            interleaved[offset++] = this.vertices[i * 3];
-            interleaved[offset++] = this.vertices[i * 3 + 1];
-            interleaved[offset++] = this.vertices[i * 3 + 2];
-            // normal
-            interleaved[offset++] = this.normals[i * 3];
-            interleaved[offset++] = this.normals[i * 3 + 1];
-            interleaved[offset++] = this.normals[i * 3 + 2];
-            // uv
-            interleaved[offset++] = this.uvs[i * 2];
-            interleaved[offset++] = this.uvs[i * 2 + 1];
-            // colors (如有)
-            if (colorSize) {
-                interleaved[offset++] = this.colors[i * colorSize];
-                interleaved[offset++] = this.colors[i * colorSize + 1];
-                interleaved[offset++] = this.colors[i * colorSize + 2];
-                if (colorSize === 4) {
-                    interleaved[offset++] = this.colors[i * colorSize + 3];
-                }
-            }
+            // 向量 p1 - p0
+            const ax = v[i1]     - v[i0];
+            const ay = v[i1 + 1] - v[i0 + 1];
+            const az = v[i1 + 2] - v[i0 + 2];
+
+            // 向量 p2 - p0
+            const bx = v[i2]     - v[i0];
+            const by = v[i2 + 1] - v[i0 + 1];
+            const bz = v[i2 + 2] - v[i0 + 2];
+
+            // 叉乘  a × b
+            let nx = ay * bz - az * by;
+            let ny = az * bx - ax * bz;
+            let nz = ax * by - ay * bx;
+
+            // 归一化
+            const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+            nx /= len;
+            ny /= len;
+            nz /= len;
+
+            // 把同一法线写进 3 个顶点
+            n[i0]     = nx; n[i0 + 1] = ny; n[i0 + 2] = nz;
+            n[i1]     = nx; n[i1 + 1] = ny; n[i1 + 2] = nz;
+            n[i2]     = nx; n[i2 + 1] = ny; n[i2 + 2] = nz;
         }
 
-        this.positions = interleaved;
-        this.strideInfo = {
-            vertexCount,
-            colorSize,
-            stride,                 // 每个顶点总分量数 (float 个数)
-            byteStride: stride * 4,  // 每个顶点的字节大小
-            layout: {
-                position: { size: 3, offset: 0 },
-                normal: { size: 3, offset: 3 },
-                uv: { size: 2, offset: 6 },
-                color: colorSize ? { size: colorSize, offset: 8 } : null
-            }
-        };
-
-        return this; // 支持链式调用
+        return n;
     }
 }

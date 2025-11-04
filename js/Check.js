@@ -29,6 +29,17 @@ export default class Check {
         return Array.isArray(value);
     }
 
+    // 判断是否为一维数组
+    static isOneDimensionalArray(value) {
+        return Array.isArray(arr) && arr.every(v => !Array.isArray(v));
+    }
+
+    // 判断是否为二维数组
+    static isTwoDimensionalArray(value) {
+        return Array.isArray(arr) && arr.length > 0 && arr.every(Array.isArray);
+    }
+
+
     // 判断是否为对象（非数组、非 null）
     static isObject(value) {
         return typeof value === 'object' && value !== null && !Array.isArray(value);
