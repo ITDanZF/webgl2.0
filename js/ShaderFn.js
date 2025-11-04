@@ -60,6 +60,17 @@ Shader.RegisterShaderFn('fragment', 'PhongLighting', `
     /**
      * Phong 综合光照 (环境 + 漫反射 + 镜面)
      * 返回 vec4 最终颜色, alpha 由外部传入
+     * normal:        片元法线
+     * posW:          片元位置
+     * viewPosW:      观察者(摄像机)位置
+     * lightPosW:     光源位置
+     * materialColor: 材质基础颜色
+     * ambientColor:  环境光颜色
+     * ambientIntensity: 环境光强度(0~1)
+     * lightColor:    光源颜色 (可包含强度信息)
+     * specularColor: 镜面高光颜色 (通常为白色 vec3(1.0))
+     * shininess:     高光粗糙度(越大高光越小越锐利)
+     * alpha:         透明度(0~1)
      */
     vec4 PhongLighting(
         vec3 normal,
